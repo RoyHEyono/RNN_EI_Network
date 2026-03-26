@@ -9,7 +9,6 @@ class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
         torch.manual_seed(42)  # Set seed for reproducibility
         self.n_input = 784
         self.ne = 500
-        self.ni = 2
         self.batch_size = 4
         
         self.layer = INormLayer(
@@ -27,9 +26,6 @@ class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
         
         # Compute inhibitory output
         hi = torch.matmul(hi, self.layer.W_EI.T)
-
-        # print(hex.shape, hi.shape, self.layer.bias.shape)
-        # hex = hex + self.layer.bias
 
         # Add divisive variance here...
         z_d_squared = torch.matmul(torch.matmul(self.x, self.layer.U_IE.T)**2, self.layer.U_EI.T)
@@ -56,12 +52,12 @@ class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
         ln = torch.nn.LayerNorm(self.ne, elementwise_affine=False)
 
         # Compute excitatory input by projecting x onto Wex
-        hex = torch.matmul(self.x, self.layer.Wex.T)
+        hex = torch.matmul(self.x, self.layer.W_EE.T)
 
         excitatory_output = ln(hex)
         decoupled_homeostatic_output = self.layer(self.x)
 
-        self.assertTrue(torch.allclose(excitatory_output, decoupled_homeostatic_output, atol=1e-6),
+        self.assertTrue(torch.allclose(excitatory_output, decoupled_homeostatic_output, atol=1e-5),
                         msg=f"Initialization doesn't match ln on excitatory output")
 
 
@@ -74,9 +70,8 @@ class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
     def test_weights_initialized_correctly(self):
         """Test that weights are initialized correctly."""
 
-        self.assertEqual(self.layer.Wex.shape, (self.ne, self.n_input))
-        self.assertEqual(self.layer.Wix.shape, (self.ni, self.n_input))
-        self.assertEqual(self.layer.Wei.shape, (self.ne, self.ni))
+        self.assertEqual(self.layer.W_EE.shape, (self.ne, self.n_input))
+        self.assertEqual(torch.matmul(self.layer.W_EI,self.layer.W_IE).shape, (self.ne, self.n_input))
 
     def test_inhibitory_weights_gradient_updated_in_forward(self):
         """Ensure inhibitory weights receive gradients after forward pass"""

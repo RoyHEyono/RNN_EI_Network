@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from inhibition.normalization import layer_norm_linear_ste as grad_norm
+from inhibition import init
 
 class INormLayer(nn.Module):
     def __init__(self, in_features, out_features, inh_ratio=0.1, eps=1e-5):
@@ -18,21 +20,31 @@ class INormLayer(nn.Module):
         self.W_EI = nn.Parameter(torch.randn(out_features, n_inh)) # I (sub) to E
         
         # Divisive Inhibitory Pathway
-        self.U_IE = nn.Parameter(torch.randn(n_inh, in_features))  # E to I (div)
-        self.U_EI = nn.Parameter(torch.randn(out_features, n_inh)) # I (div) to E
+        self.U_IE = nn.Parameter(torch.randn(out_features, in_features))  # E to I (div)
+        self.U_EI = nn.Parameter(torch.randn(out_features, out_features)) # I (div) to E
 
         self.bias = nn.Parameter(torch.zeros(1, out_features))
+        self.bias.clamp = True
+
+        self.grad_norm = grad_norm()
 
         # Initialize weights to be positive
-        for p in self.parameters():
-            nn.init.kaiming_uniform_(p, a=1)
-            p.data.abs_()
+        # for p in self.parameters():
+        #     nn.init.kaiming_uniform_(p, a=1)
+        #     p.data.abs_()
+
+        init.excitatory_weight(self.W_EE)
+        init.subtractive_excitatory_inhibitory_weight(self.W_IE, self.W_EE)
+        init.subtractive_inhibitory_excitatory_weight(self.W_EE, self.W_EI)
+        init.divisive_excitatory_inhibitory_weight(self.W_EI, self.W_EE, self.W_IE, self.U_IE)
+        init.divisive_inhibitory_excitatory_weight(self.W_EE, self.U_EI)
 
     def forward(self, h_prev):
         # Enforce Dale's Principle: keep weights non-negative
         with torch.no_grad():
             for p in self.parameters():
-                p.clamp_(min=0)
+                if p.clamp:
+                    p.clamp_(min=0)
 
         # 1. Calculate Inhibitory Activity (Feedforward)
         h_I = F.linear(h_prev, self.W_IE) # Subtractive population
@@ -49,5 +61,6 @@ class INormLayer(nn.Module):
 
         # 5. Combined Normalization (Equation 1 in paper)
         z = (e_drive - sub_inh) / torch.sqrt(div_inh + self.eps)
+        #TODO: z = self.grad_norm(z) 
         
         return z
