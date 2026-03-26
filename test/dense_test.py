@@ -73,20 +73,35 @@ class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
         self.assertEqual(self.layer.W_EE.shape, (self.ne, self.n_input))
         self.assertEqual(torch.matmul(self.layer.W_EI,self.layer.W_IE).shape, (self.ne, self.n_input))
 
+    def test_local_loss_tuple_near_zero(self):
+        """local_loss returns (moment_term, ln_mse); both should be ~0 at init."""
+        moments_loss, ln_loss = self.layer.local_loss(self.x)
+        m = moments_loss.item() if torch.is_tensor(moments_loss) else float(moments_loss)
+        self.assertTrue(
+            np.isclose(m, 0.0, atol=1e-5),
+            msg=f"Expected moments term near 0, got {m}",
+        )
+        self.assertTrue(
+            np.isclose(ln_loss, 0.0, atol=1e-5),
+            msg=f"Expected LN ground-truth MSE near 0, got {ln_loss}",
+        )
+
     def test_inhibitory_weights_gradient_updated_in_forward(self):
         """Ensure inhibitory weights receive gradients after forward pass"""
         self.layer.zero_grad()  # Clear any previous gradients
 
         # Run forward pass
         _ = self.layer(self.x)
+        local_loss, _ = self.layer.local_loss(self.x)
+        local_loss.backward()
 
         # Check if gradients exist after forward
-        self.assertIsNotNone(self.layer.Wix.grad)
-        self.assertFalse(self.layer.Wei.requires_grad)
-        self.assertIsNotNone(self.layer.Bix.grad)
-        self.assertFalse(self.layer.Bei.requires_grad)
-        self.assertIsNone(self.layer.Wex.grad)
-        self.assertIsNone(self.layer.b.grad)
+        self.assertIsNotNone(self.layer.W_EI.grad)
+        self.assertIsNotNone(self.layer.U_EI.grad)
+        self.assertIsNotNone(self.layer.W_IE.grad)
+        self.assertIsNotNone(self.layer.U_IE.grad)
+        self.assertIsNone(self.layer.W_EE.grad)
+        self.assertIsNone(self.layer.bias.grad)
 
     def test_excitatory_weights_gradient_updated_in_backward(self):
         """Ensure Wex only receives gradients during backward, not forward"""
@@ -94,26 +109,19 @@ class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
 
         # Run forward pass
         output = self.layer(self.x)
-
-        # Capture Wix and Wei before forward
-        Wix_before = self.layer.Wix.grad.clone().detach()
-        # Wei_before = self.layer.Wei.grad.clone().detach()
-        Bix_before = self.layer.Bix.grad.clone().detach()
-        # Bei_before = self.layer.Bei.grad.clone().detach()
-
+        
         # Ensure Wex has NO gradients yet (should only update in backward)
-        self.assertIsNone(self.layer.Wex.grad)
-        self.assertIsNone(self.layer.b.grad)
+        self.assertIsNone(self.layer.W_EE.grad)
+        self.assertIsNone(self.layer.bias.grad)
 
         # Compute loss and backprop
         loss = output.sum()  # Dummy loss
         loss.backward()
 
         # Now Wex should have gradients
-        self.assertIsNotNone(self.layer.Wex.grad)
-        self.assertIsNotNone(self.layer.b.grad)
-        # Ensure inhibitory weights have not changed
-        self.assertTrue(torch.equal(Wix_before, self.layer.Wix.grad))
-        # self.assertTrue(torch.equal(Wei_before, self.layer.Wei.grad))
-        self.assertTrue(torch.equal(Bix_before, self.layer.Bix.grad))
-        # self.assertTrue(torch.equal(Bei_before, self.layer.Bei.grad))
+        self.assertIsNotNone(self.layer.W_EE.grad)
+        self.assertIsNotNone(self.layer.bias.grad)
+        self.assertIsNone(self.layer.W_EI.grad)
+        self.assertIsNone(self.layer.U_EI.grad)
+        self.assertIsNone(self.layer.W_IE.grad)
+        self.assertIsNone(self.layer.U_IE.grad)

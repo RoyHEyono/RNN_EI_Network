@@ -27,11 +27,8 @@ class INormLayer(nn.Module):
         self.bias.clamp = True
 
         self.grad_norm = grad_norm()
-
-        # Initialize weights to be positive
-        # for p in self.parameters():
-        #     nn.init.kaiming_uniform_(p, a=1)
-        #     p.data.abs_()
+        self.ln_norm = torch.nn.LayerNorm(out_features, elementwise_affine=False)
+        self.local_criterion = nn.MSELoss()
 
         init.excitatory_weight(self.W_EE)
         init.subtractive_excitatory_inhibitory_weight(self.W_IE, self.W_EE)
@@ -60,7 +57,30 @@ class INormLayer(nn.Module):
         div_inh = F.linear(h_D, self.U_EI)
 
         # 5. Combined Normalization (Equation 1 in paper)
-        z = (e_drive - sub_inh) / torch.sqrt(div_inh + self.eps)
-        #TODO: z = self.grad_norm(z) 
-        
+        z = (e_drive - sub_inh.detach()) / torch.sqrt(div_inh.detach() + self.eps)
+        #TODO: z = self.grad_norm(z)
+
         return z
+
+    def local_loss(self, h_prev):
+        with torch.no_grad():
+            for p in self.parameters():
+                if p.clamp:
+                    p.clamp_(min=0)
+
+        h = h_prev.detach()
+        h_I = F.linear(h, self.W_IE)
+        h_D = F.linear(h, self.U_IE) ** 2
+        e_drive = F.linear(h, self.W_EE) + self.bias
+        sub_inh = F.linear(h_I, self.W_EI)
+        div_inh = F.linear(h_D, self.U_EI)
+        z = (e_drive.detach() - sub_inh) / torch.sqrt(div_inh + self.eps)
+
+        mean = torch.mean(z, dim=1, keepdim=True)
+        var = z.var(dim=-1, unbiased=False)
+        ln_ground_truth_loss = self.local_criterion(z, self.ln_norm(e_drive))
+        
+        var_term = (var-1) ** 2
+        mean_term = mean ** 2
+        
+        return ((mean_term + var_term).mean()), (ln_ground_truth_loss).item()
