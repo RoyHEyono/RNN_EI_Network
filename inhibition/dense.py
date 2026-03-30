@@ -63,10 +63,6 @@ class INormLayer(nn.Module):
         return z
 
     def local_loss(self, h_prev):
-        with torch.no_grad():
-            for p in self.parameters():
-                if p.clamp:
-                    p.clamp_(min=0)
 
         h = h_prev.detach()
         h_I = F.linear(h, self.W_IE)
