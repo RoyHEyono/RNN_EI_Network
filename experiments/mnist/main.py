@@ -3,8 +3,8 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
 from experiments.mnist.cli import build_train_arg_parser
-from experiments.mnist.data import make_mnist_dataloaders
-from experiments.mnist.model import Net, inorm_adadelta_param_groups
+from inhibition.data import make_mnist_dataloaders
+from inhibition.model import Net, inorm_param_groups
 from experiments.mnist.training import evaluate, format_eval_metrics, train_one_epoch
 
 
@@ -30,7 +30,7 @@ def main():
 
     model = Net().to(device)
     optimizer = optim.SGD(
-        inorm_adadelta_param_groups(model, args.lr, args.lr_ie, args.lr_ei),
+        inorm_param_groups(model, args.lr, args.lr_ie, args.lr_ei),
     )
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)

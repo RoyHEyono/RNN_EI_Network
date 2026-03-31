@@ -7,7 +7,7 @@ from inhibition.dense import INormLayer
 MNIST_FLAT = 28 * 28
 
 
-def inorm_adadelta_param_groups(model, lr_exc, lr_ie, lr_ei):
+def inorm_param_groups(model, lr_exc, lr_ie, lr_ei):
     """Excitatory and split inhibitory (*_IE vs *_EI) groups for INormLayer."""
     exc_params, ie_params, ei_params = [], [], []
     for m in model.modules():
