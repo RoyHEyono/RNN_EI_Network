@@ -1,5 +1,6 @@
 import torch
 import torch.optim as optim
+import wandb
 from torch.optim.lr_scheduler import StepLR
 
 from experiments.mnist.cli import build_train_arg_parser
@@ -33,11 +34,24 @@ def main():
         inorm_param_groups(model, args.lr, args.lr_ie, args.lr_ei),
     )
 
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    for epoch in range(1, args.epochs + 1):
-        train_one_epoch(args, model, device, train_loader, optimizer, epoch)
-        print(format_eval_metrics(evaluate(model, device, test_loader)))
-        scheduler.step()
+    if args.wandb:
+        wandb.init(project=args.wandb_project, config=vars(args))
+        wandb.watch(model, log="all", log_freq=10)
+
+    try:
+        scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+        for epoch in range(1, args.epochs + 1):
+            train_loss, train_task_loss, train_local_ln = train_one_epoch(
+                args, model, device, train_loader, optimizer, epoch
+            )
+            test_metrics = evaluate(model, device, test_loader)
+            print(format_eval_metrics(test_metrics))
+            if args.wandb:
+                wandb.log({"train/loss": train_loss, "train/task_loss": train_task_loss, "train/local_ln_sum": train_local_ln, "test/loss": test_metrics["loss"], "test/accuracy_pct": test_metrics["accuracy_pct"], "epoch": epoch}, step=epoch)
+            scheduler.step()
+    finally:
+        if args.wandb:
+            wandb.finish()
 
 
 if __name__ == "__main__":

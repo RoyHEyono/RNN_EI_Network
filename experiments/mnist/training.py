@@ -39,7 +39,7 @@ def train_one_epoch(
     epoch: int,
     *,
     verbose: bool = True,
-) -> None:
+) -> tuple[float, float, float]:
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -63,6 +63,7 @@ def train_one_epoch(
             )
             if args.dry_run:
                 break
+    return loss.item(), metrics["task_loss"], metrics["local_ln_sum"]
 
 
 def evaluate(
