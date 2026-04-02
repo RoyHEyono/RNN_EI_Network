@@ -4,6 +4,7 @@ from typing import Any, Mapping
 
 import torch
 import torch.nn.functional as F
+import wandb
 
 
 def training_loss_from_batch(
@@ -49,6 +50,8 @@ def train_one_epoch(
         )
         loss.backward()
         optimizer.step()
+        if getattr(args, "wandb", False):
+            wandb.log({"train/loss": loss.item(), "train/task_loss": metrics["task_loss"], "train/local_ln_sum": metrics["local_ln_sum"], "epoch": epoch})
         if verbose and batch_idx % args.log_interval == 0:
             print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} (task {:.6f}, ln {:.6f})".format(

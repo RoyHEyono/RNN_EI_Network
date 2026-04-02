@@ -36,18 +36,16 @@ def main():
 
     if args.wandb:
         wandb.init(project=args.wandb_project, config=vars(args))
-        wandb.watch(model, log="all", log_freq=10)
+        wandb.watch(model, log="all", log_freq=100)
 
     try:
         scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
         for epoch in range(1, args.epochs + 1):
-            train_loss, train_task_loss, train_local_ln = train_one_epoch(
-                args, model, device, train_loader, optimizer, epoch
-            )
+            train_one_epoch(args, model, device, train_loader, optimizer, epoch)
             test_metrics = evaluate(model, device, test_loader)
             print(format_eval_metrics(test_metrics))
             if args.wandb:
-                wandb.log({"train/loss": train_loss, "train/task_loss": train_task_loss, "train/local_ln_sum": train_local_ln, "test/loss": test_metrics["loss"], "test/accuracy_pct": test_metrics["accuracy_pct"], "epoch": epoch}, step=epoch)
+                wandb.log({"test/loss": test_metrics["loss"], "test/accuracy_pct": test_metrics["accuracy_pct"], "epoch": epoch})
             scheduler.step()
     finally:
         if args.wandb:
