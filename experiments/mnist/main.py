@@ -4,7 +4,7 @@ import wandb
 from torch.optim.lr_scheduler import StepLR
 
 from experiments.mnist.cli import build_train_arg_parser
-from inhibition.data import make_mnist_dataloaders
+from inhibition.data import make_mnist_dataloaders, make_fashion_mnist_dataloaders
 from inhibition.model import Net, inorm_param_groups
 from experiments.mnist.training import evaluate, format_eval_metrics, train_one_epoch
 
@@ -22,11 +22,12 @@ def main():
     else:
         device = torch.device("cpu")
 
-    train_loader, test_loader = make_mnist_dataloaders(
+    train_loader, test_loader = make_fashion_mnist_dataloaders(
         args.data_dir,
         batch_size=args.batch_size,
         test_batch_size=args.test_batch_size,
         use_accel=use_accel,
+        brightness_factor=0,
     )
 
     model = Net().to(device)
