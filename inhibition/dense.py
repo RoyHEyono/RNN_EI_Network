@@ -26,7 +26,7 @@ class INormLayer(nn.Module):
         self.bias = nn.Parameter(torch.zeros(1, out_features))
         self.bias.clamp = True
 
-        self.grad_norm = grad_norm()
+        self.grad_norm = grad_norm(out_features, elementwise_affine=False)
         self.ln_norm = torch.nn.LayerNorm(out_features, elementwise_affine=False)
         self.local_criterion = nn.MSELoss()
 
@@ -58,7 +58,7 @@ class INormLayer(nn.Module):
 
         # 5. Combined Normalization (Equation 1 in paper)
         z = (e_drive - sub_inh.detach()) / torch.sqrt(div_inh.detach() + self.eps)
-        #TODO: z = self.grad_norm(z)
+        z = self.grad_norm(z) # Straight through estimator for gradient (V. important)
 
         return z
 
