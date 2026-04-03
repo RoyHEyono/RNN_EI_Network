@@ -22,7 +22,7 @@ def _net_forward_manual(net: Net, x):
     z1 = _inorm_manual(net.fc1, h0)
     h1 = F.relu(z1)
     z2 = _inorm_manual(net.fc2, h1)
-    return F.log_softmax(z2, dim=1), h0, h1, z1, z2
+    return z2, h0, h1, z1, z2
 
 
 class TestNetINormLayers(unittest.TestCase):

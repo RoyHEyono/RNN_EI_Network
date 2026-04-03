@@ -33,10 +33,36 @@ class Net(nn.Module):
         z1 = self.fc1(h0)
         h1 = F.relu(z1)
         z2 = self.fc2(h1)
-        output = F.log_softmax(z2, dim=1)
+        output = z2  # logits for CrossEntropyLoss
         if return_layer_inputs:
             return output, (h0, h1)
         return output
 
     def inorm_layers(self):
         return [self.fc1, self.fc2]
+
+
+class DeepNet(nn.Module):
+    def __init__(self):
+        super(DeepNet, self).__init__()
+        self.fc1 = INormLayer(MNIST_FLAT, 468)
+        self.fc2 = INormLayer(468, 468)
+        self.fc3 = INormLayer(468, 468)
+        self.fc4 = INormLayer(468, 10) # TODO: EI Dense Layer Here Instead of INorm
+
+    def forward(self, x, return_layer_inputs=False):
+        h0 = torch.flatten(x, 1)
+        z1 = self.fc1(h0)
+        h1 = F.relu(z1)
+        z2 = self.fc2(h1)
+        h2 = F.relu(z2)
+        z3 = self.fc3(h2)
+        h3 = F.relu(z3)
+        z4 = self.fc4(h3)
+        output = z4  # logits for CrossEntropyLoss
+        if return_layer_inputs:
+            return output, (h0, h1, h2, h3)
+        return output
+
+    def inorm_layers(self):
+        return [self.fc1, self.fc2, self.fc3, self.fc4]

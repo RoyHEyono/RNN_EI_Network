@@ -3,9 +3,12 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 import torch
-import torch.nn.functional as F
+from torch.nn import CrossEntropyLoss
 import wandb
 
+# Mean reduction for training; sum over batch for evaluate (divide by N for average).
+loss_fn = CrossEntropyLoss(label_smoothing=0.1)
+loss_fn_sum = CrossEntropyLoss(label_smoothing=0.1, reduction="sum")
 
 def training_loss_from_batch(
     model: torch.nn.Module,
@@ -16,7 +19,7 @@ def training_loss_from_batch(
 ) -> tuple[torch.Tensor, dict[str, float]]:
     """Single-batch forward + local loss; returns scalar loss and detached metrics."""
     output, layer_inputs = model(data, return_layer_inputs=True)
-    task_loss = F.nll_loss(output, target)
+    task_loss = loss_fn(output, target)
     local_moment = torch.zeros((), device=task_loss.device, dtype=task_loss.dtype)
     local_ln_sum = 0.0
     for layer, h_prev in zip(model.inorm_layers(), layer_inputs):
@@ -83,7 +86,7 @@ def evaluate(
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            total_loss += F.nll_loss(output, target, reduction="sum").item()
+            total_loss += loss_fn_sum(output, target).item()
             pred = output.argmax(dim=1, keepdim=True)
             n_correct += pred.eq(target.view_as(pred)).sum().item()
             n_total += target.shape[0]
