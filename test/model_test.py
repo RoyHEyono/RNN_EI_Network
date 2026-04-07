@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from inhibition.model import MNIST_FLAT, Net, inorm_param_groups
+from inhibition.model import DeepNet, MNIST_FLAT, Net, inorm_param_groups
 
 
 def _inorm_manual(layer, x):
@@ -203,6 +203,17 @@ class TestInormParamGroups(unittest.TestCase):
         groups = inorm_param_groups(self.net, 0.01, 0.02, 0.03)
         opt = torch.optim.Adadelta(groups)
         self.assertEqual(len(opt.param_groups), 3)
+
+    def test_deep_net_all_parameters_in_groups(self):
+        model = DeepNet()
+        groups = inorm_param_groups(model, 1e-3, 1e-3, 1e-3)
+        seen = set()
+        for g in groups:
+            for p in g["params"]:
+                self.assertNotIn(id(p), seen, msg="parameter appears in more than one group")
+                seen.add(id(p))
+        for p in model.parameters():
+            self.assertIn(id(p), seen, msg="model parameter missing from inorm_param_groups")
 
     def test_sgd_step_uses_correct_lr_per_group_after_e_and_i_backward(self):
         """Backward through task + local losses (E and I), then unit grads so Δw = -lr per element."""

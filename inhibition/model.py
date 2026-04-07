@@ -2,19 +2,23 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from inhibition.dense import INormLayer
+from inhibition.dense import INormLayer, EiDenseLayer
 
 MNIST_FLAT = 28 * 28
 
 
 def inorm_param_groups(model, lr_exc, lr_ie, lr_ei):
-    """Excitatory and split inhibitory (*_IE vs *_EI) groups for INormLayer."""
+    """Excitatory and split inhibitory (*_IE vs *_EI) groups for INormLayer and EiDenseLayer."""
     exc_params, ie_params, ei_params = [], [], []
     for m in model.modules():
         if isinstance(m, INormLayer):
             exc_params.extend([m.W_EE, m.bias])
             ie_params.extend([m.W_IE, m.U_IE])
             ei_params.extend([m.W_EI, m.U_EI])
+        elif isinstance(m, EiDenseLayer):
+            exc_params.extend([m.W_EE, m.bias])
+            ie_params.append(m.W_IE)
+            ei_params.append(m.W_EI)
     return [
         {"params": exc_params, "lr": lr_exc},
         {"params": ie_params, "lr": lr_ie},
@@ -48,7 +52,7 @@ class DeepNet(nn.Module):
         self.fc1 = INormLayer(MNIST_FLAT, 468)
         self.fc2 = INormLayer(468, 468)
         self.fc3 = INormLayer(468, 468)
-        self.fc4 = INormLayer(468, 10) # TODO: EI Dense Layer Here Instead of INorm
+        self.fc4 = EiDenseLayer(468, 10)
 
     def forward(self, x, return_layer_inputs=False):
         h0 = torch.flatten(x, 1)
@@ -65,4 +69,4 @@ class DeepNet(nn.Module):
         return output
 
     def inorm_layers(self):
-        return [self.fc1, self.fc2, self.fc3, self.fc4]
+        return [self.fc1, self.fc2, self.fc3]

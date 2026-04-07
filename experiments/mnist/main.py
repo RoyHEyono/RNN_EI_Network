@@ -1,7 +1,6 @@
 import torch
 import torch.optim as optim
 import wandb
-from torch.optim.lr_scheduler import StepLR
 
 from experiments.mnist.cli import build_train_arg_parser
 from inhibition.data import make_mnist_dataloaders, make_fashion_mnist_dataloaders
@@ -40,14 +39,12 @@ def main():
         wandb.watch(model, log="all", log_freq=100)
 
     try:
-        scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
         for epoch in range(1, args.epochs + 1):
             train_one_epoch(args, model, device, train_loader, optimizer, epoch)
             test_metrics = evaluate(model, device, test_loader)
             print(format_eval_metrics(test_metrics))
             if args.wandb:
                 wandb.log({"test/loss": test_metrics["loss"], "test/accuracy_pct": test_metrics["accuracy_pct"], "epoch": epoch})
-            scheduler.step()
     finally:
         if args.wandb:
             wandb.finish()

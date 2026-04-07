@@ -10,7 +10,6 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lr-ie", type=float, default=0.041498118034054156, metavar="LR", dest="lr_ie", help="Adadelta lr for *_IE weights (W_IE, U_IE) (default: 1.0)")
     parser.add_argument("--lr-ei", type=float, default=0.005825485335208354, metavar="LR", dest="lr_ei", help="Adadelta lr for *_EI weights (W_EI, U_EI) (default: 1.0)")
     parser.add_argument("--local-loss-weight", type=float, default=0.01, metavar="W", dest="local_loss_weight", help="weight for INormLayer local (moments) loss vs task NLL (default: 1.0)")
-    parser.add_argument("--gamma", type=float, default=0.7, metavar="M", help="Learning rate step gamma (default: 0.7)")
     parser.add_argument("--no-accel", action="store_true", help="disables accelerator")
     parser.add_argument("--dry-run", action="store_true", help="quickly check a single pass")
     parser.add_argument("--seed", type=int, default=1, metavar="S", help="random seed (default: 1)")
