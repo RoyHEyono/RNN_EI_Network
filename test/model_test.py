@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from inhibition.model import DeepNet, MNIST_FLAT, Net, inorm_param_groups
+from inhibition.model import DeepNet, MNIST_FLAT, Net, RNNNet, inorm_param_groups
 
 
 def _inorm_manual(layer, x):
@@ -257,3 +257,25 @@ class TestInormParamGroups(unittest.TestCase):
                 torch.allclose(delta, want),
                 msg=f"expected update -lr*1 with lr={lr}, got max abs err {(delta - want).abs().max().item()}",
             )
+
+
+class TestRNNNet(unittest.TestCase):
+    def setUp(self):
+        torch.manual_seed(123)
+        self.batch_size = 4
+        self.model = RNNNet(hidden_size=32)
+        self.x = torch.randn(self.batch_size, 1, 28, 28)
+
+    def test_forward_output_shape(self):
+        output = self.model(self.x)
+        self.assertEqual(output.shape, (self.batch_size, 10))
+
+    def test_uses_eidense_head(self):
+        self.assertEqual(self.model.head.__class__.__name__, "EiDenseLayer")
+
+    def test_forward_with_layer_inputs(self):
+        logits, (seq, rnn_out, h_n) = self.model(self.x, return_layer_inputs=True)
+        self.assertEqual(logits.shape, (self.batch_size, 10))
+        self.assertEqual(seq.shape, (self.batch_size, 28, 28))
+        self.assertEqual(rnn_out.shape, (self.batch_size, 28, 32))
+        self.assertEqual(h_n.shape, (self.batch_size, 32))

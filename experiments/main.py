@@ -4,7 +4,7 @@ import wandb
 
 from experiments.cli import build_train_arg_parser
 from inhibition.data import make_mnist_dataloaders, make_fashion_mnist_dataloaders
-from inhibition.model import DeepNet, inorm_param_groups
+from inhibition.model import RNNNet, inorm_param_groups, DeepNet 
 from experiments.training import evaluate, format_eval_metrics, train_one_epoch
 
 
@@ -28,8 +28,8 @@ def main():
         use_accel=use_accel,
         brightness_factor=0,
     )
-
-    model = DeepNet().to(device)
+    # model = DeepNet().to(device)
+    model = RNNNet().to(device)
     optimizer = optim.SGD(
         inorm_param_groups(model, args.lr, args.lr_ie, args.lr_ei),
     )

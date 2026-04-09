@@ -3,8 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from inhibition.dense import INormLayer, EiDenseLayer
+from inhibition.rnn import SimpleEERNN
 
 MNIST_FLAT = 28 * 28
+MNIST_SIDE = 28
 
 
 def inorm_param_groups(model, lr_exc, lr_ie, lr_ei):
@@ -19,6 +21,8 @@ def inorm_param_groups(model, lr_exc, lr_ie, lr_ei):
             exc_params.extend([m.W_EE, m.bias])
             ie_params.append(m.W_IE)
             ei_params.append(m.W_EI)
+        elif isinstance(m, SimpleEERNN):
+            exc_params.extend([m.W_XE, m.W_EE, m.bias])
     return [
         {"params": exc_params, "lr": lr_exc},
         {"params": ie_params, "lr": lr_ie},
@@ -70,3 +74,40 @@ class DeepNet(nn.Module):
 
     def inorm_layers(self):
         return [self.fc1, self.fc2, self.fc3]
+
+
+class RNNNet(nn.Module):
+    """Simple classifier head over :class:`SimpleEERNN` for MNIST-like images.
+
+    Expects the same dataloader tensor shape used elsewhere in this repo: ``(B, 1, 28, 28)``.
+    Internally reshapes to a sequence ``(B, 28, 28)`` (rows as timesteps).
+    """
+
+    def __init__(self, hidden_size=128, nonlinearity="tanh", num_classes=10):
+        super().__init__()
+        self.rnn = SimpleEERNN(
+            input_size=MNIST_SIDE,
+            hidden_size=hidden_size,
+            nonlinearity=nonlinearity,
+            batch_first=True,
+        )
+        self.head = EiDenseLayer(hidden_size, num_classes)
+
+    def forward(self, x, return_layer_inputs=False):
+        if x.dim() != 4:
+            raise ValueError(f"Expected input shape (B, 1, 28, 28), got {tuple(x.shape)}")
+        if x.shape[1:] != (1, MNIST_SIDE, MNIST_SIDE):
+            raise ValueError(
+                f"Expected trailing dims (1, {MNIST_SIDE}, {MNIST_SIDE}), got {tuple(x.shape[1:])}"
+            )
+
+        seq = x.squeeze(1)  # (B, 28, 28)
+        rnn_out, h_n = self.rnn(seq)
+        logits = self.head(h_n)
+        if return_layer_inputs:
+            return logits, (seq, rnn_out, h_n)
+        return logits
+
+    def inorm_layers(self):
+        # RNN path has no per-layer local loss terms in the current training objective.
+        return []
