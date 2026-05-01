@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+neurogym = ["neurogym"]
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -111,3 +111,122 @@ class RNNNet(nn.Module):
     def inorm_layers(self):
         # RNN path has no per-layer local loss terms in the current training objective.
         return []
+
+
+class NeurogymRNNNet(nn.Module):
+    """``SimpleEERNN`` + ``EiDenseLayer`` readout for NeuroGym-style vector observations.
+
+    Same stack as :class:`RNNNet`, but each timestep is an ``ob_size`` vector (not an image row).
+
+    Args:
+        ob_size: observation dimension per timestep.
+        hidden_size: recurrent hidden units.
+        n_actions: number of discrete actions (logits per step).
+        nonlinearity: passed to :class:`~inhibition.rnn.SimpleEERNN`.
+    """
+
+    def __init__(
+        self,
+        ob_size: int,
+        hidden_size: int = 64,
+        n_actions: int = 3,
+        nonlinearity: str = "relu",
+    ):
+        super().__init__()
+        self.ob_size = ob_size
+        self.n_actions = n_actions
+        self.rnn = SimpleEERNN(
+            input_size=ob_size,
+            hidden_size=hidden_size,
+            nonlinearity=nonlinearity,
+            batch_first=True,
+        )
+        self.head = EiDenseLayer(hidden_size, n_actions)
+
+    def forward(self, x: torch.Tensor, return_layer_inputs: bool = False):
+        if x.dim() != 3:
+            raise ValueError(
+                f"Expected input (batch, seq, ob_size), got shape {tuple(x.shape)}"
+            )
+        if x.shape[-1] != self.ob_size:
+            raise ValueError(
+                f"Expected trailing dim ob_size={self.ob_size}, got {x.shape[-1]}"
+            )
+        rnn_out, _ = self.rnn(x)
+        b, s, h = rnn_out.shape
+        logits = self.head(rnn_out.reshape(b * s, h)).reshape(b, s, self.n_actions)
+        if return_layer_inputs:
+            return logits, ()
+        return logits
+
+    def inorm_layers(self):
+        return []
+
+
+class NeurogymVanillaRNNNet(nn.Module):
+    """Control model: PyTorch :class:`torch.nn.RNN` + MLP readout for NeuroGym-style observations.
+
+    Same I/O contract as :class:`NeurogymRNNNet` — ``(batch, seq, ob_size)`` → logits
+    ``(batch, seq, n_actions)`` — but uses a standard RNN and a small feedforward head
+    instead of :class:`~inhibition.rnn.SimpleEERNN` / :class:`~inhibition.dense.EiDenseLayer`.
+
+    When ``use_layer_norm`` is True (default), applies :class:`~torch.nn.LayerNorm` on the
+    hidden dimension of the RNN outputs (``elementwise_affine=False``, same style as
+    :class:`~inhibition.rnn.SimpleEERNN`), before the MLP head. ``nn.RNN`` still applies
+    its nonlinearity internally; this normalizes the emitted hidden states feeding the head.
+    """
+
+    def __init__(
+        self,
+        ob_size: int,
+        hidden_size: int = 64,
+        n_actions: int = 3,
+        nonlinearity: str = "relu",
+        num_layers: int = 1,
+        ffn_hidden: int | None = None,
+        use_layer_norm: bool = True,
+        layer_norm_eps: float = 1e-5,
+    ):
+        super().__init__()
+        if nonlinearity not in {"tanh", "relu"}:
+            raise ValueError("nonlinearity must be 'tanh' or 'relu' for nn.RNN")
+        self.ob_size = ob_size
+        self.n_actions = n_actions
+        self.use_layer_norm = use_layer_norm
+        self.rnn = nn.RNN(
+            input_size=ob_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            nonlinearity=nonlinearity,
+            batch_first=True,
+        )
+        self.layer_norm = (
+            nn.LayerNorm(hidden_size, eps=layer_norm_eps, elementwise_affine=False)
+            if use_layer_norm
+            else None
+        )
+        ffn_dim = ffn_hidden if ffn_hidden is not None else hidden_size
+        self.head = nn.Sequential(
+            nn.Linear(hidden_size, n_actions),
+        )
+
+    def forward(self, x: torch.Tensor, return_layer_inputs: bool = False):
+        if x.dim() != 3:
+            raise ValueError(
+                f"Expected input (batch, seq, ob_size), got shape {tuple(x.shape)}"
+            )
+        if x.shape[-1] != self.ob_size:
+            raise ValueError(
+                f"Expected trailing dim ob_size={self.ob_size}, got {x.shape[-1]}"
+            )
+        rnn_out, _ = self.rnn(x)
+        if self.layer_norm is not None:
+            rnn_out = self.layer_norm(rnn_out)
+        b, s, h = rnn_out.shape
+        logits = self.head(rnn_out.reshape(b * s, h)).reshape(b, s, self.n_actions)
+        if return_layer_inputs:
+            return logits, ()
+        return logits
+
+    def inorm_layers(self):
+        return []
