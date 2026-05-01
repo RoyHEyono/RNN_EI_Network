@@ -1,0 +1,62 @@
+step 100  mean_loss_last_100: 0.35652  trial_acc (50 trials): 0.5600
+step 200  mean_loss_last_100: 0.24892  trial_acc (50 trials): 0.6400
+step 300  mean_loss_last_100: 0.22175  trial_acc (50 trials): 0.8000
+step 400  mean_loss_last_100: 0.19440  trial_acc (50 trials): 0.9400
+step 500  mean_loss_last_100: 0.16907  trial_acc (50 trials): 0.7200
+step 600  mean_loss_last_100: 0.14840  trial_acc (50 trials): 1.0000
+step 700  mean_loss_last_100: 0.13110  trial_acc (50 trials): 1.0000
+step 800  mean_loss_last_100: 0.13124  trial_acc (50 trials): 1.0000
+step 900  mean_loss_last_100: 0.10674  trial_acc (50 trials): 1.0000
+step 1000  mean_loss_last_100: 0.09602  trial_acc (50 trials): 1.0000
+step 1100  mean_loss_last_100: 0.08995  trial_acc (50 trials): 1.0000
+step 1200  mean_loss_last_100: 0.08372  trial_acc (50 trials): 1.0000
+step 1300  mean_loss_last_100: 0.07939  trial_acc (50 trials): 1.0000
+step 1400  mean_loss_last_100: 0.07660  trial_acc (50 trials): 1.0000
+step 1500  mean_loss_last_100: 0.07222  trial_acc (50 trials): 1.0000
+step 1600  mean_loss_last_100: 0.06738  trial_acc (50 trials): 1.0000
+step 1700  mean_loss_last_100: 0.06829  trial_acc (50 trials): 1.0000
+step 1800  mean_loss_last_100: 0.06539  trial_acc (50 trials): 1.0000
+step 1900  mean_loss_last_100: 0.06249  trial_acc (50 trials): 1.0000
+step 2000  mean_loss_last_100: 0.06287  trial_acc (50 trials): 1.0000
+Finished training.
+
+======== GPU REPORT ========
+
+==============NVSMI LOG==============
+
+Timestamp                                 : Fri May  1 15:29:55 2026
+Driver Version                            : 580.95.05
+CUDA Version                              : 13.0
+
+Attached GPUs                             : 1
+GPU 00000000:3A:00.0
+    Accounting Mode                       : Enabled
+    Accounting Mode Buffer Size           : 4000
+    Accounted Processes
+        Process ID                        : 3759444
+            GPU Utilization               : 15 %
+            Memory Utilization            : 0 %
+            Max memory usage              : 232 MiB
+            Time                          : 425275 ms
+            Is Running                    : 0
+
+Fri May  1 15:29:55 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.95.05              Driver Version: 580.95.05      CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  Quadro RTX 8000                On  |   00000000:3A:00.0 Off |                    0 |
+| 33%   31C    P8             69W /  260W |       1MiB /  46080MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+

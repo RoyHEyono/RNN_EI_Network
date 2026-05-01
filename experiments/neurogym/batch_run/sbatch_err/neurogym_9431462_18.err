@@ -1,0 +1,25 @@
+warning: `VIRTUAL_ENV=inhibition/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/mila/r/roy.eyono/.netrc.
+wandb: Currently logged in as: royeyono to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.25.1
+wandb: Run data is saved locally in /home/mila/r/roy.eyono/RNN_EI_Network/wandb/run-20260501_151051-0vylsukl
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run ng_9431462_ei_18
+wandb: ⭐️ View project at https://wandb.ai/royeyono/ng-perceptualdecisionmaking-v0
+wandb: 🚀 View run at https://wandb.ai/royeyono/ng-perceptualdecisionmaking-v0/runs/0vylsukl
+wandb: updating run metadata
+wandb: 
+wandb: Run history:
+wandb:    eval/trial_accuracy ▁▁▁▂▅▅▆▇▇█▇▇▆▇▇█▇▇▆▆█▇▇▆▇▇█▇▇▇█▇▇▆█▇▇▇█▇
+wandb:  train/loss_batch_mean █▄▄▃▂▃▃▂▂▂▂▂▂▂▂▂▁▂▂▁
+wandb: train/loss_window_mean █▃▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: 
+wandb: Run summary:
+wandb:    eval/trial_accuracy 0.7
+wandb:  train/loss_batch_mean 0.01641
+wandb: train/loss_window_mean 0.02163
+wandb: 
+wandb: 🚀 View run ng_9431462_ei_18 at: https://wandb.ai/royeyono/ng-perceptualdecisionmaking-v0/runs/0vylsukl
+wandb: ⭐️ View project at: https://wandb.ai/royeyono/ng-perceptualdecisionmaking-v0
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260501_151051-0vylsukl/logs

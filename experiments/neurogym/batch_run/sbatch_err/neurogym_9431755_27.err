@@ -1,0 +1,26 @@
+warning: `VIRTUAL_ENV=inhibition/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/mila/r/roy.eyono/.netrc.
+wandb: Currently logged in as: royeyono to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run vwm3ha0m
+wandb: Tracking run with wandb version 0.25.1
+wandb: Run data is saved locally in /home/mila/r/roy.eyono/RNN_EI_Network/wandb/run-20260501_153701-vwm3ha0m
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run ng_9431755_vanilla_27
+wandb: ⭐️ View project at https://wandb.ai/royeyono/ng-antireach-v0
+wandb: 🚀 View run at https://wandb.ai/royeyono/ng-antireach-v0/runs/vwm3ha0m
+wandb: updating run metadata
+wandb: 
+wandb: Run history:
+wandb:    eval/trial_accuracy ▃▅▁▁▁▁▄▁▁▃▁▂▅▁▂▂▃▂▄▃▂▃▁▁▅█▂▂▃▃▂▃▃▄▃▅▄▅▁▃
+wandb:  train/loss_batch_mean █▄▃▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: train/loss_window_mean █▃▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: 
+wandb: Run summary:
+wandb:    eval/trial_accuracy 0
+wandb:  train/loss_batch_mean 1.02703
+wandb: train/loss_window_mean 1.02811
+wandb: 
+wandb: 🚀 View run ng_9431755_vanilla_27 at: https://wandb.ai/royeyono/ng-antireach-v0/runs/vwm3ha0m
+wandb: ⭐️ View project at: https://wandb.ai/royeyono/ng-antireach-v0
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260501_153701-vwm3ha0m/logs

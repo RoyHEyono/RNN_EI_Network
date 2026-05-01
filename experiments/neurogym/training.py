@@ -16,6 +16,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import wandb
 
 
 def require_neurogym() -> None:
@@ -78,6 +79,7 @@ def train_supervised_steps(
     args: Any,
     model: nn.Module,
     dataset: Any,
+    env: Any,
     criterion: nn.Module,
     optimizer: optim.Optimizer,
     device: torch.device,
@@ -95,7 +97,25 @@ def train_supervised_steps(
         loss.backward()
         optimizer.step()
 
+        trial_acc: float | None = None
+        if args.eval_trials > 0:
+            trial_acc = trial_eval_accuracy(model, env, device, args.eval_trials)
+
         running_loss += float(loss.item())
         if (i + 1) % args.log_interval == 0:
-            print(f"step {i + 1}  mean_loss_last_{args.log_interval}: {running_loss / args.log_interval:.5f}")
+            mean_loss = running_loss / args.log_interval
+            line = f"step {i + 1}  mean_loss_last_{args.log_interval}: {mean_loss:.5f}"
+            if trial_acc is not None:
+                line += f"  trial_acc ({args.eval_trials} trials): {trial_acc:.4f}"
+            print(line)
+            if getattr(args, "wandb", False):
+                payload: dict[str, Any] = {
+                    "train/loss_batch_mean": loss.item(),
+                    "train/loss_window_mean": mean_loss,
+                }
+                if trial_acc is not None:
+                    payload["eval/trial_accuracy"] = trial_acc
+                wandb.log(payload, step=i + 1)
             running_loss = 0.0
+        elif getattr(args, "wandb", False) and trial_acc is not None:
+            wandb.log({"eval/trial_accuracy": trial_acc}, step=i + 1)

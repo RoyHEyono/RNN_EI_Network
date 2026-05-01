@@ -1,0 +1,21 @@
+step 100  mean_loss_last_100: 0.09242  trial_acc (50 trials): 0.6800
+step 200  mean_loss_last_100: 0.03606  trial_acc (50 trials): 0.8800
+step 300  mean_loss_last_100: 0.03134  trial_acc (50 trials): 0.8400
+step 400  mean_loss_last_100: 0.02807  trial_acc (50 trials): 0.8400
+step 500  mean_loss_last_100: 0.02507  trial_acc (50 trials): 0.7800
+step 600  mean_loss_last_100: 0.02213  trial_acc (50 trials): 0.7000
+step 700  mean_loss_last_100: 0.02032  trial_acc (50 trials): 0.8400
+step 800  mean_loss_last_100: 0.01867  trial_acc (50 trials): 0.8600
+step 900  mean_loss_last_100: 0.01915  trial_acc (50 trials): 0.8200
+step 1000  mean_loss_last_100: 0.01834  trial_acc (50 trials): 0.8400
+step 1100  mean_loss_last_100: 0.01802  trial_acc (50 trials): 0.8200
+step 1200  mean_loss_last_100: 0.01773  trial_acc (50 trials): 0.8800
+step 1300  mean_loss_last_100: 0.01807  trial_acc (50 trials): 0.8800
+step 1400  mean_loss_last_100: 0.01750  trial_acc (50 trials): 0.8400
+step 1500  mean_loss_last_100: 0.01706  trial_acc (50 trials): 0.7000
+step 1600  mean_loss_last_100: 0.01700  trial_acc (50 trials): 0.8000
+step 1700  mean_loss_last_100: 0.01726  trial_acc (50 trials): 0.9000
+step 1800  mean_loss_last_100: 0.01686  trial_acc (50 trials): 0.9000
+step 1900  mean_loss_last_100: 0.01613  trial_acc (50 trials): 0.8200
+step 2000  mean_loss_last_100: 0.01616  trial_acc (50 trials): 0.8200
+Finished training.

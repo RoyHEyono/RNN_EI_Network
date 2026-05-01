@@ -42,7 +42,12 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
         help="disable LayerNorm on RNN outputs (vanilla --arch only; default: LN on, like SimpleEERNN)",
     )
     p.add_argument("--log-interval", type=int, default=100)
-    p.add_argument("--eval-trials", type=int, default=200, help="trial-based eval count (0 to skip)")
+    p.add_argument(
+        "--eval-trials",
+        type=int,
+        default=50,
+        help="trial-rollout eval after each supervised step (0 to skip; expensive)",
+    )
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--device", type=str, default="", help="cuda | cpu (empty = auto)")
     p.add_argument("--optimizer", type=str, default="sgd", choices=("adam", "sgd"))
@@ -50,4 +55,16 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--lr-ie", type=float, default=None, dest="lr_ie", help="SGD lr for *_IE (default: --lr)")
     p.add_argument("--lr-ei", type=float, default=None, dest="lr_ei", help="SGD lr for *_EI (default: --lr)")
     p.add_argument("--momentum", type=float, default=0.0, help="SGD momentum (default 0)")
+    p.add_argument(
+        "--wandb",
+        action="store_true",
+        help="log metrics to Weights & Biases",
+    )
+    p.add_argument(
+        "--wandb-project",
+        type=str,
+        default="neurogym-ei-rnn",
+        metavar="NAME",
+        help="W&B project when --wandb is set (default: neurogym-ei-rnn)",
+    )
     return p

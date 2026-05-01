@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import os
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import wandb
 
 from experiments.neurogym.cli import build_train_arg_parser
 from experiments.neurogym.training import (
     configure_neurogym_warnings,
     require_neurogym,
     train_supervised_steps,
-    trial_eval_accuracy,
 )
 from inhibition.model import NeurogymRNNNet, NeurogymVanillaRNNNet, inorm_param_groups
 
@@ -73,12 +75,21 @@ def main() -> None:
                 momentum=args.momentum,
             )
 
-    train_supervised_steps(args, model, dataset, criterion, optimizer, device)
-    print("Finished training.")
+    if args.wandb:
+        run_name = os.environ.get("WANDB_RUN_NAME")
+        wandb.init(
+            project=args.wandb_project,
+            config=vars(args),
+            name=run_name or None,
+        )
+        wandb.watch(model, log="all", log_freq=max(args.log_interval, 50))
 
-    if args.eval_trials > 0:
-        acc = trial_eval_accuracy(model, env, device, args.eval_trials)
-        print(f"Trial eval ({args.eval_trials} trials): mean accuracy = {acc:.4f}")
+    try:
+        train_supervised_steps(args, model, dataset, env, criterion, optimizer, device)
+        print("Finished training.")
+    finally:
+        if args.wandb:
+            wandb.finish()
 
 
 if __name__ == "__main__":
