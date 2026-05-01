@@ -2,10 +2,10 @@ import torch
 import torch.optim as optim
 import wandb
 
-from experiments.cli import build_train_arg_parser
+from experiments.fmnist.cli import build_train_arg_parser
 from inhibition.data import make_mnist_dataloaders, make_fashion_mnist_dataloaders
 from inhibition.model import RNNNet, inorm_param_groups, DeepNet 
-from experiments.training import evaluate, format_eval_metrics, train_one_epoch
+from experiments.fmnist.training import evaluate, format_eval_metrics, train_one_epoch
 
 
 def main():

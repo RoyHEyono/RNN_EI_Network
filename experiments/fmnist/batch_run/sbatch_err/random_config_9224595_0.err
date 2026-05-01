@@ -1,0 +1,31 @@
+warning: `VIRTUAL_ENV=/home/mila/r/roy.eyono/RNN_EI_Network/inhibition/.venv` does not match the project environment path `/home/mila/r/roy.eyono/RNN_EI_Network/.venv` and will be ignored; use `--active` to target the active environment instead
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/mila/r/roy.eyono/.netrc.
+wandb: Currently logged in as: royeyono to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.25.1
+wandb: Run data is saved locally in /home/mila/r/roy.eyono/RNN_EI_Network/experiments/batch_run/wandb/run-20260410_143439-dau6by6z
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run chocolate-bee-46
+wandb: ⭐️ View project at https://wandb.ai/royeyono/mnist-ei
+wandb: 🚀 View run at https://wandb.ai/royeyono/mnist-ei/runs/dau6by6z
+wandb: uploading history steps 93769-93799, summary, console lines 9544-9548
+wandb: 
+wandb: Run history:
+wandb:              epoch ▁▁▁▁▁▂▂▂▂▃▃▃▃▃▃▄▄▄▄▄▄▅▅▅▅▆▆▆▆▆▆▆▇▇▇▇████
+wandb:  test/accuracy_pct ▁▃▄▄▅▅▆▆▆▆▆▆▇▇▇▇▇▇▇▇▇▇▇█████████████████
+wandb:          test/loss █▆▅▅▄▄▃▃▃▃▃▃▂▂▂▂▂▂▂▂▂▂▂▂▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: train/local_ln_sum ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         train/loss █▇▆▇▄▅▂▄▅▅▃▅▄▄▅▂▃▃▃▃▂▂▃▂▃▂▂▂▄▄▃▃▂▂▁▁▂▄▃▃
+wandb:    train/task_loss █▆▇▆▇▆▅▄▅▅▆▇▅▄▃▂▃▅▂▅▃▆▁▁▄▃▃▃▂▂▂▃▂▂▃▄▂▅▂▃
+wandb: 
+wandb: Run summary:
+wandb:              epoch 50
+wandb:  test/accuracy_pct 86.41
+wandb:          test/loss 0.80435
+wandb: train/local_ln_sum 0
+wandb:         train/loss 0.67858
+wandb:    train/task_loss 0.67858
+wandb: 
+wandb: 🚀 View run chocolate-bee-46 at: https://wandb.ai/royeyono/mnist-ei/runs/dau6by6z
+wandb: ⭐️ View project at: https://wandb.ai/royeyono/mnist-ei
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260410_143439-dau6by6z/logs

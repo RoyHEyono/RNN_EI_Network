@@ -1,0 +1,32 @@
+warning: `VIRTUAL_ENV=/home/mila/r/roy.eyono/RNN_EI_Network/inhibition/.venv` does not match the project environment path `/home/mila/r/roy.eyono/RNN_EI_Network/.venv` and will be ignored; use `--active` to target the active environment instead
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from /home/mila/r/roy.eyono/.netrc.
+wandb: Currently logged in as: royeyono to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.25.1
+wandb: Run data is saved locally in /home/mila/r/roy.eyono/RNN_EI_Network/experiments/batch_run/wandb/run-20260410_153549-2liv3h72
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run hardy-dream-61
+wandb: ⭐️ View project at https://wandb.ai/royeyono/mnist-ei
+wandb: 🚀 View run at https://wandb.ai/royeyono/mnist-ei/runs/2liv3h72
+wandb: updating run metadata
+wandb: uploading output.log
+wandb: 
+wandb: Run history:
+wandb:              epoch ▁▁▁▂▂▂▃▃▃▃▃▃▃▃▄▄▄▄▄▄▄▅▅▅▅▆▆▆▆▆▆▆▆▆▇▇▇▇██
+wandb:  test/accuracy_pct ▁▂▃▄▄▅▅▅▆▆▆▆▆▇▇▇▇▇▇▇▇▇▇▇▇▇▇█▇███████████
+wandb:          test/loss █▇▅▅▅▄▄▃▃▃▃▃▂▂▂▂▂▂▂▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: train/local_ln_sum ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         train/loss ██▆▄▄▄▄▄▄▃▄▂▄▃▃▃▂▂▂▃▂▃▂▃▂▂▁▁▂▁▁▁▁▁▂▂▂▁▃▂
+wandb:    train/task_loss ▇█▅▆▇▅▆▇▅▄▄▅▄▄▃▅▃▅▃▃▅▃▅▃▄▄▃▂▂▄▃▁▂▂▅▃▁▄▃▂
+wandb: 
+wandb: Run summary:
+wandb:              epoch 50
+wandb:  test/accuracy_pct 76.81
+wandb:          test/loss 1.01005
+wandb: train/local_ln_sum 0
+wandb:         train/loss 0.82054
+wandb:    train/task_loss 0.82054
+wandb: 
+wandb: 🚀 View run hardy-dream-61 at: https://wandb.ai/royeyono/mnist-ei/runs/2liv3h72
+wandb: ⭐️ View project at: https://wandb.ai/royeyono/mnist-ei
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260410_153549-2liv3h72/logs
