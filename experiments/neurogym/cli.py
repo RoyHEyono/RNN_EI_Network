@@ -7,8 +7,8 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
         "--arch",
         type=str,
         default="vanilla",
-        choices=("ei", "vanilla"),
-        help="ei: SimpleEERNN+EiDenseLayer; vanilla: nn.RNN+MLP head (control)",
+        choices=("ei", "vanilla", "lstm"),
+        help="ei: SimpleEERNN+EiDenseLayer; vanilla: nn.RNN+linear; lstm: nn.LSTM+linear",
     )
     p.add_argument(
         "--task",
@@ -19,7 +19,7 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--dt", type=int, default=100, help="env dt (default: 100)")
     p.add_argument("--seq-len", type=int, default=100, metavar="T", help="dataset seq_len")
     p.add_argument("--batch-size", type=int, default=16, metavar="N")
-    p.add_argument("--epochs", type=int, default=2000, help="training steps (each step = one dataset batch)")
+    p.add_argument("--epochs", type=int, default=5000, help="training steps (each step = one dataset batch)")
     p.add_argument("--hidden", type=int, default=64, metavar="H", help="RNN hidden size")
     p.add_argument("--nonlinearity", type=str, default="relu", choices=("tanh", "relu"))
     p.add_argument(
@@ -27,19 +27,12 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
         type=int,
         default=1,
         metavar="L",
-        help="stacked RNN depth (vanilla --arch only; default 1)",
+        help="stacked recurrent depth (vanilla / lstm --arch; default 1)",
     )
     p.add_argument(
-        "--ffn-hidden",
-        type=int,
-        default=None,
-        metavar="F",
-        help="MLP hidden width in readout head (vanilla only; default = --hidden)",
-    )
-    p.add_argument(
-        "--no-vanilla-layer-norm",
+        "--vanilla-layer-norm",
         action="store_true",
-        help="disable LayerNorm on RNN outputs (vanilla --arch only; default: LN on, like SimpleEERNN)",
+        help="LayerNorm on recurrent outputs before readout (vanilla / lstm --arch)",
     )
     p.add_argument("--log-interval", type=int, default=100)
     p.add_argument(

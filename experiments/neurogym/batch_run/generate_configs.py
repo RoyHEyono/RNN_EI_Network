@@ -1,4 +1,4 @@
-"""Generate JSON configs for SLURM array jobs: paired ei vs vanilla with identical lr/seed."""
+"""Generate JSON configs for SLURM array jobs: per lr, ei + vanilla/LSTM (± LayerNorm), same seed."""
 
 from __future__ import annotations
 
@@ -6,24 +6,31 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
+# Single seed for all grid runs; learning rates sweep below.
+GRID_SEED = 42
+
+# Log-spaced steps between anchors 0.001 → 0.01 → 0.1 → 0.5 (×2, ×2.5, ×2 between decades).
+LEARNING_RATES: list[float] = [
+    0.001,
+    0.002,
+    0.005,
+    0.01,
+    0.02,
+    0.05,
+    0.1,
+    0.2,
+    0.3,
+    0.5,
+]
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=(
-            "NeuroGym batch_run config generator. Samples num_pairs (lr, seed) draws and emits "
-            "2×num_pairs rows: each draw twice with arch ei then vanilla (same lr and seed)."
+            "NeuroGym batch_run config generator. Grid over LEARNING_RATES with fixed "
+            f"seed {GRID_SEED}; per lr: ei, vanilla±LN, lstm±LN — 5×len(LR) rows."
         )
     )
-    p.add_argument(
-        "--num-pairs",
-        type=int,
-        default=20,
-        metavar="N",
-        help="number of shared (lr, seed) draws; JSON length will be 2N (match SBATCH --array=0-(2N-1))",
-    )
-    p.add_argument("--seed", type=int, default=0, help="RNG seed for reproducible config generation")
     p.add_argument(
         "--out",
         type=Path,
@@ -33,27 +40,34 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def sample_configs(num_pairs: int, seed: int) -> list[dict[str, float | int | str]]:
-    rng = np.random.default_rng(seed)
-    log_lr_lo, log_lr_hi = -2.52, -1.52
-    configs: list[dict[str, float | int | str]] = []
-    for _ in range(num_pairs):
-        lr = float(10 ** rng.uniform(log_lr_lo, log_lr_hi))
-        run_seed = int(rng.integers(0, 1_000_000_000))
-        configs.append({"lr": lr, "seed": run_seed, "arch": "ei"})
-        configs.append({"lr": lr, "seed": run_seed, "arch": "vanilla"})
+def grid_configs() -> list[dict[str, float | int | str | bool | None]]:
+    configs: list[dict[str, float | int | str | bool | None]] = []
+    for lr in LEARNING_RATES:
+        # EI: no --vanilla-layer-norm (N/A); vanilla/lstm use the flag from JSON.
+        configs.append({"lr": lr, "seed": GRID_SEED, "arch": "ei", "vanilla_layer_norm": True})
+        configs.append(
+            {"lr": lr, "seed": GRID_SEED, "arch": "vanilla", "vanilla_layer_norm": True}
+        )
+        configs.append(
+            {"lr": lr, "seed": GRID_SEED, "arch": "vanilla", "vanilla_layer_norm": False}
+        )
+        configs.append(
+            {"lr": lr, "seed": GRID_SEED, "arch": "lstm", "vanilla_layer_norm": True}
+        )
+        configs.append(
+            {"lr": lr, "seed": GRID_SEED, "arch": "lstm", "vanilla_layer_norm": False}
+        )
     return configs
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    if args.num_pairs <= 0:
-        raise ValueError("--num-pairs must be > 0")
-    configs = sample_configs(num_pairs=args.num_pairs, seed=args.seed)
+    configs = grid_configs()
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(configs, indent=2), encoding="utf-8")
     n = len(configs)
-    print(f"Wrote {n} configs ({args.num_pairs} paired draws) to {args.out}")
+    n_lr = len(LEARNING_RATES)
+    print(f"Wrote {n} configs ({n_lr} LRs × 5: ei, vanilla±LN, lstm±LN) to {args.out}")
     print(f"SLURM: #SBATCH --array=0-{n - 1}")
 
 

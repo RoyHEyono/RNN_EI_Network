@@ -13,7 +13,12 @@ from experiments.neurogym.training import (
     require_neurogym,
     train_supervised_steps,
 )
-from inhibition.model import NeurogymRNNNet, NeurogymVanillaRNNNet, inorm_param_groups
+from inhibition.model import (
+    NeurogymRNNNet,
+    NeurogymVanillaLSTMNet,
+    NeurogymVanillaRNNNet,
+    inorm_param_groups,
+)
 
 
 def main() -> None:
@@ -45,6 +50,15 @@ def main() -> None:
             n_actions=act_size,
             nonlinearity=args.nonlinearity,
         ).to(device)
+    elif args.arch == "lstm":
+        model = NeurogymVanillaLSTMNet(
+            ob_size=ob_size,
+            hidden_size=args.hidden,
+            n_actions=act_size,
+            nonlinearity=args.nonlinearity,
+            num_layers=args.rnn_layers,
+            use_layer_norm=args.vanilla_layer_norm,
+        ).to(device)
     else:
         model = NeurogymVanillaRNNNet(
             ob_size=ob_size,
@@ -52,8 +66,7 @@ def main() -> None:
             n_actions=act_size,
             nonlinearity=args.nonlinearity,
             num_layers=args.rnn_layers,
-            ffn_hidden=args.ffn_hidden,
-            use_layer_norm=not args.no_vanilla_layer_norm,
+            use_layer_norm=args.vanilla_layer_norm,
         ).to(device)
 
     criterion = nn.CrossEntropyLoss()

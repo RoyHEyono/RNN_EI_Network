@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array=0-39
+#SBATCH --array=0-49
 #SBATCH --partition=long
 #SBATCH --gres=gpu:rtx8000:1
 #SBATCH --mem=16GB
@@ -24,20 +24,43 @@ random_params=$(python -c "import json; import sys; f=open('$random_configs_file
 lr=$(echo $random_params | python -c "import sys, json; config=json.load(sys.stdin); print(config['lr'])")
 seed=$(echo $random_params | python -c "import sys, json; config=json.load(sys.stdin); print(config['seed'])")
 arch=$(echo $random_params | python -c "import sys, json; config=json.load(sys.stdin); print(config.get('arch', 'ei'))")
+use_vanilla_ln=$(echo $random_params | python -c "import sys, json; c=json.load(sys.stdin); print(1 if c.get('vanilla_layer_norm') is True else 0)")
+
+if [[ "$arch" == "vanilla" ]]; then
+  if [[ "$use_vanilla_ln" == "1" ]]; then
+    arch_tag="vanilla_ln"
+  else
+    arch_tag="vanilla_noln"
+  fi
+elif [[ "$arch" == "lstm" ]]; then
+  if [[ "$use_vanilla_ln" == "1" ]]; then
+    arch_tag="lstm_ln"
+  else
+    arch_tag="lstm_noln"
+  fi
+else
+  arch_tag="$arch"
+fi
 
 if [[ -n "${SLURM_ARRAY_JOB_ID:-}" ]]; then
-  export WANDB_RUN_NAME="ng_${SLURM_ARRAY_JOB_ID}_${arch}_${random_index}"
+  export WANDB_RUN_NAME="ng_${SLURM_ARRAY_JOB_ID}_${arch_tag}_${random_index}"
 else
-  export WANDB_RUN_NAME="ng_manual_${arch}_${random_index}"
+  export WANDB_RUN_NAME="ng_manual_${arch_tag}_${random_index}"
 fi
 
 cd "$REPO_ROOT" || exit 1
 
-uv run --extra neurogym python -m experiments.neurogym.main \
-  --wandb \
-  --wandb-project "$WANDB_PROJECT" \
-  --task "$TASK" \
-  --arch "$arch" \
-  --optimizer sgd \
-  --lr=$lr \
-  --seed=$seed
+run_args=(
+  uv run --extra neurogym python -m experiments.neurogym.main
+  --wandb
+  --wandb-project "$WANDB_PROJECT"
+  --task "$TASK"
+  --arch "$arch"
+  --optimizer sgd
+  --lr="$lr"
+  --seed="$seed"
+)
+if [[ "$use_vanilla_ln" == "1" ]] && [[ "$arch" == "vanilla" || "$arch" == "lstm" ]]; then
+  run_args+=(--vanilla-layer-norm)
+fi
+"${run_args[@]}"

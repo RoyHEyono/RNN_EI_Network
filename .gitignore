@@ -13,4 +13,5 @@ __pycache__
 *.lock
 wandb/
 experiments/**/data/
-experiments/batch_run/sbatch*
+experiments/**/batch_run/sbatch_err/
+experiments/**/batch_run/sbatch_out/
