@@ -85,6 +85,7 @@ def train_supervised_steps(
     device: torch.device,
 ) -> None:
     running_loss = 0.0
+    trial_accuracies: list[float] = []
     for i in range(args.epochs):
         model.train()
         inputs_np, labels_np = dataset()
@@ -100,6 +101,7 @@ def train_supervised_steps(
         trial_acc: float | None = None
         if args.eval_trials > 0:
             trial_acc = trial_eval_accuracy(model, env, device, args.eval_trials)
+            trial_accuracies.append(trial_acc)
 
         running_loss += float(loss.item())
         if (i + 1) % args.log_interval == 0:
@@ -115,7 +117,14 @@ def train_supervised_steps(
                 }
                 if trial_acc is not None:
                     payload["eval/trial_accuracy"] = trial_acc
+                    payload["eval/trial_accuracy_auc"] = float(np.trapezoid(trial_accuracies))
                 wandb.log(payload, step=i + 1)
             running_loss = 0.0
         elif getattr(args, "wandb", False) and trial_acc is not None:
-            wandb.log({"eval/trial_accuracy": trial_acc}, step=i + 1)
+            wandb.log(
+                {
+                    "eval/trial_accuracy": trial_acc,
+                    "eval/trial_accuracy_auc": float(np.trapezoid(trial_accuracies)),
+                },
+                step=i + 1,
+            )

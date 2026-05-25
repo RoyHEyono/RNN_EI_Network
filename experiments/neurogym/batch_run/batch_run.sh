@@ -13,7 +13,7 @@ REPO_ROOT=/home/mila/r/roy.eyono/RNN_EI_Network
 
 source "${REPO_ROOT}/.venv/bin/activate"
 
-TASK="${TASK:-DelayMatchSample-v0}"
+TASK="${TASK:-PerceptualDecisionMaking-v0}"
 _wandb_slug=$(echo "$TASK" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]\+/\-/g' -e 's/^-\|-$//g')
 WANDB_PROJECT="${WANDB_PROJECT:-ng-${_wandb_slug}}"
 
