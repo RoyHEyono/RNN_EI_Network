@@ -13,7 +13,7 @@ REPO_ROOT=/home/mila/r/roy.eyono/RNN_EI_Network
 
 source "${REPO_ROOT}/.venv/bin/activate"
 
-TASK="${TASK:-ContextDecisionMaking-v0}"
+TASK="${TASK:-DelayMatchSample-v0}"
 _wandb_slug=$(echo "$TASK" | tr '[:upper:]' '[:lower:]' | sed -e 's/[^a-z0-9]\+/\-/g' -e 's/^-\|-$//g')
 WANDB_PROJECT="${WANDB_PROJECT:-ng-${_wandb_slug}}"
 
@@ -24,16 +24,16 @@ random_params=$(python -c "import json; import sys; f=open('$random_configs_file
 lr=$(echo $random_params | python -c "import sys, json; config=json.load(sys.stdin); print(config['lr'])")
 seed=$(echo $random_params | python -c "import sys, json; config=json.load(sys.stdin); print(config['seed'])")
 arch=$(echo $random_params | python -c "import sys, json; config=json.load(sys.stdin); print(config.get('arch', 'ei'))")
-use_vanilla_ln=$(echo $random_params | python -c "import sys, json; c=json.load(sys.stdin); print(1 if c.get('vanilla_layer_norm') is True else 0)")
+use_layer_norm=$(echo $random_params | python -c "import sys, json; c=json.load(sys.stdin); print(1 if c.get('layer_norm') is True else 0)")
 
 if [[ "$arch" == "vanilla" ]]; then
-  if [[ "$use_vanilla_ln" == "1" ]]; then
+  if [[ "$use_layer_norm" == "1" ]]; then
     arch_tag="vanilla_ln"
   else
     arch_tag="vanilla_noln"
   fi
 elif [[ "$arch" == "lstm" ]]; then
-  if [[ "$use_vanilla_ln" == "1" ]]; then
+  if [[ "$use_layer_norm" == "1" ]]; then
     arch_tag="lstm_ln"
   else
     arch_tag="lstm_noln"
@@ -60,7 +60,7 @@ run_args=(
   --lr="$lr"
   --seed="$seed"
 )
-if [[ "$use_vanilla_ln" == "1" ]] && [[ "$arch" == "vanilla" || "$arch" == "lstm" ]]; then
-  run_args+=(--vanilla-layer-norm)
+if [[ "$use_layer_norm" == "1" ]] && [[ "$arch" == "vanilla" || "$arch" == "lstm" ]]; then
+  run_args+=(--layer-norm)
 fi
 "${run_args[@]}"

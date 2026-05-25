@@ -57,7 +57,7 @@ def main() -> None:
             n_actions=act_size,
             nonlinearity=args.nonlinearity,
             num_layers=args.rnn_layers,
-            use_layer_norm=args.vanilla_layer_norm,
+            use_layer_norm=args.layer_norm,
         ).to(device)
     else:
         model = NeurogymVanillaRNNNet(
@@ -66,7 +66,7 @@ def main() -> None:
             n_actions=act_size,
             nonlinearity=args.nonlinearity,
             num_layers=args.rnn_layers,
-            use_layer_norm=args.vanilla_layer_norm,
+            use_layer_norm=args.layer_norm,
         ).to(device)
 
     criterion = nn.CrossEntropyLoss()

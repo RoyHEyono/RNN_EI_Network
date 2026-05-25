@@ -3,300 +3,300 @@
     "lr": 0.001,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.001,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.001,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.001,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.001,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.002,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.002,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.002,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.002,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.002,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.005,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.005,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.005,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.005,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.005,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.01,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.01,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.01,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.01,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.01,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.02,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.02,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.02,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.02,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.02,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.05,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.05,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.05,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.05,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.05,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.1,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.1,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.1,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.1,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.1,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.2,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.2,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.2,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.2,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.2,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.3,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.3,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.3,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.3,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.3,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.5,
     "seed": 42,
     "arch": "ei",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.5,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.5,
     "seed": 42,
     "arch": "vanilla",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   },
   {
     "lr": 0.5,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": true
+    "layer_norm": true
   },
   {
     "lr": 0.5,
     "seed": 42,
     "arch": "lstm",
-    "vanilla_layer_norm": false
+    "layer_norm": false
   }
 ]

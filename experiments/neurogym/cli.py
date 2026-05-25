@@ -30,7 +30,7 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
         help="stacked recurrent depth (vanilla / lstm --arch; default 1)",
     )
     p.add_argument(
-        "--vanilla-layer-norm",
+        "--layer-norm",
         action="store_true",
         help="LayerNorm on recurrent outputs before readout (vanilla / lstm --arch)",
     )

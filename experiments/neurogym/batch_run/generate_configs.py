@@ -43,19 +43,19 @@ def build_parser() -> argparse.ArgumentParser:
 def grid_configs() -> list[dict[str, float | int | str | bool | None]]:
     configs: list[dict[str, float | int | str | bool | None]] = []
     for lr in LEARNING_RATES:
-        # EI: no --vanilla-layer-norm (N/A); vanilla/lstm use the flag from JSON.
-        configs.append({"lr": lr, "seed": GRID_SEED, "arch": "ei", "vanilla_layer_norm": True})
+        # EI: no --layer-norm (N/A); vanilla/lstm use the flag from JSON.
+        configs.append({"lr": lr, "seed": GRID_SEED, "arch": "ei", "layer_norm": True})
         configs.append(
-            {"lr": lr, "seed": GRID_SEED, "arch": "vanilla", "vanilla_layer_norm": True}
+            {"lr": lr, "seed": GRID_SEED, "arch": "vanilla", "layer_norm": True}
         )
         configs.append(
-            {"lr": lr, "seed": GRID_SEED, "arch": "vanilla", "vanilla_layer_norm": False}
+            {"lr": lr, "seed": GRID_SEED, "arch": "vanilla", "layer_norm": False}
         )
         configs.append(
-            {"lr": lr, "seed": GRID_SEED, "arch": "lstm", "vanilla_layer_norm": True}
+            {"lr": lr, "seed": GRID_SEED, "arch": "lstm", "layer_norm": True}
         )
         configs.append(
-            {"lr": lr, "seed": GRID_SEED, "arch": "lstm", "vanilla_layer_norm": False}
+            {"lr": lr, "seed": GRID_SEED, "arch": "lstm", "layer_norm": False}
         )
     return configs
 
