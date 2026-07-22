@@ -1,6 +1,7 @@
 import unittest
 
 import torch
+import torch.nn as nn
 
 from inhibition.rnn import SimpleEERNN
 
@@ -54,6 +55,36 @@ class TestSimpleEERNN(unittest.TestCase):
         output, h_n = model(x, hx=hx)
         self.assertEqual(output.shape, (2, 4, 3))
         self.assertEqual(h_n.shape, (4, 3))
+
+    def test_parametrized_layer_norm_proj_shape(self):
+        input_size, hidden_size = 6, 8
+        model = SimpleEERNN(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            use_layer_norm=True,
+            use_parametrized_layer_norm=True,
+        )
+        self.assertIsInstance(model.layer_norm.proj, nn.Linear)
+        self.assertEqual(model.layer_norm.proj.in_features, input_size + hidden_size)
+        self.assertEqual(model.layer_norm.proj.out_features, 2)
+
+    def test_parametrized_layer_norm_forward_shapes(self):
+        model = SimpleEERNN(
+            input_size=6,
+            hidden_size=8,
+            batch_first=True,
+            use_layer_norm=True,
+            use_parametrized_layer_norm=True,
+        )
+        x = torch.randn(4, 7, 6)
+        output, h_n = model(x)
+        self.assertEqual(output.shape, (4, 7, 8))
+        self.assertEqual(h_n.shape, (4, 8))
+
+    def test_default_layer_norm_is_nn_layer_norm(self):
+        model = SimpleEERNN(input_size=4, hidden_size=8, use_layer_norm=True)
+        self.assertIsInstance(model.layer_norm, nn.LayerNorm)
+        self.assertFalse(model.use_parametrized_layer_norm)
 
 
 if __name__ == "__main__":

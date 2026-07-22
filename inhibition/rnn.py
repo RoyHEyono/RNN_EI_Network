@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from inhibition import init
+from inhibition.normalization import ParametrizedLayerNorm
 
 
 class SimpleEERNN(nn.Module):
@@ -23,18 +24,24 @@ class SimpleEERNN(nn.Module):
         nonlinearity: str | None = "tanh",
         batch_first: bool = False,
         use_layer_norm: bool = True,
+        use_parametrized_layer_norm: bool = False,
         use_bias: bool = True,
         layer_norm_eps: float = 1e-5,
     ):
         super().__init__()
         if nonlinearity not in {"tanh", "relu", None}:
             raise ValueError("nonlinearity must be 'tanh', 'relu', or None")
+        if use_parametrized_layer_norm and not use_layer_norm:
+            raise ValueError(
+                "use_parametrized_layer_norm requires use_layer_norm=True"
+            )
 
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.batch_first = batch_first
         self.nonlinearity = nonlinearity
         self.use_layer_norm = use_layer_norm
+        self.use_parametrized_layer_norm = use_parametrized_layer_norm
         self.use_bias = use_bias
 
         self.W_XE = nn.Parameter(torch.empty(hidden_size, input_size))
@@ -44,11 +51,16 @@ class SimpleEERNN(nn.Module):
             self.bias.clamp = True
         else:
             self.register_parameter("bias", None)
-        self.layer_norm = (
-            nn.LayerNorm(hidden_size, eps=layer_norm_eps, elementwise_affine=False)
-            if use_layer_norm
-            else None
-        )
+        if not use_layer_norm:
+            self.layer_norm = None
+        elif use_parametrized_layer_norm:
+            self.layer_norm = ParametrizedLayerNorm(
+                input_size, hidden_size, eps=layer_norm_eps
+            )
+        else:
+            self.layer_norm = nn.LayerNorm(
+                hidden_size, eps=layer_norm_eps, elementwise_affine=False
+            )
 
         init.excitatory_weight(self.W_XE)
         init.excitatory_weight(self.W_EE)
@@ -76,7 +88,10 @@ class SimpleEERNN(nn.Module):
         if self.bias is not None:
             pre_act = pre_act + self.bias
         if self.layer_norm is not None:
-            pre_act = self.layer_norm(pre_act)
+            if self.use_parametrized_layer_norm:
+                pre_act = self.layer_norm(pre_act, x_t, h_prev)
+            else:
+                pre_act = self.layer_norm(pre_act)
         return pre_act
 
     def forward(self, input: torch.Tensor, hx: torch.Tensor | None = None):
@@ -119,5 +134,7 @@ class SimpleEERNN(nn.Module):
         return (
             f"input_size={self.input_size}, hidden_size={self.hidden_size}, "
             f"nonlinearity={self.nonlinearity}, batch_first={self.batch_first}, "
-            f"use_layer_norm={self.use_layer_norm}, use_bias={self.use_bias}"
+            f"use_layer_norm={self.use_layer_norm}, "
+            f"use_parametrized_layer_norm={self.use_parametrized_layer_norm}, "
+            f"use_bias={self.use_bias}"
         )
