@@ -253,7 +253,7 @@ class TestSimpleEERNN(unittest.TestCase):
         optimizer = torch.optim.Adam(model_param_ln.layer_norm.parameters(), lr=1e-2)
         best_loss = float("inf")
         best_state = None
-        for _ in range(2000):
+        for _ in range(10000):
             outputs_list, h_t, aux_losses = model_param_ln(x)
             total_aux = sum(aux_losses)
             optimizer.zero_grad()
