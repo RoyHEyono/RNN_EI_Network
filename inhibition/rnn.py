@@ -89,7 +89,8 @@ class SimpleEERNN(nn.Module):
             pre_act = pre_act + self.bias
         if self.layer_norm is not None:
             if self.use_parametrized_layer_norm:
-                pre_act = self.layer_norm(pre_act, x_t, h_prev)
+                pre_act, aux_loss = self.layer_norm(pre_act, x_t, h_prev)
+                return pre_act, aux_loss
             else:
                 pre_act = self.layer_norm(pre_act)
         return pre_act
@@ -120,13 +121,22 @@ class SimpleEERNN(nn.Module):
             h_t = hx
 
         outputs = []
+        aux_losses = []
         for t in range(seq_len):
-            h_t = self._activation(self.linear_drive(x[t], h_t))
+            if self.use_parametrized_layer_norm:
+                h_t, aux_loss = self.linear_drive(x[t], h_t)
+                h_t = self._activation(h_t)
+                aux_losses.append(aux_loss)
+            else:
+                h_t = self._activation(self.linear_drive(x[t], h_t))
             outputs.append(h_t)
 
         output = torch.stack(outputs, dim=0)  # (seq, batch, hidden)
         if self.batch_first:
             output = output.transpose(0, 1)  # (batch, seq, hidden)
+
+        if self.use_parametrized_layer_norm:
+            return outputs, h_t, aux_losses
 
         return output, h_t
 

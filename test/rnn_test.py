@@ -240,6 +240,21 @@ class TestSimpleEERNN(unittest.TestCase):
         self.assertIsInstance(model.layer_norm, nn.LayerNorm)
         self.assertFalse(model.use_parametrized_layer_norm)
 
+    def test_parametrized_layer_norm_vs_nn_layer_norm(self):
+        model_nn_ln = SimpleEERNN(input_size=8, hidden_size=10, batch_first=False, use_parametrized_layer_norm = False)
+        model_param_ln = SimpleEERNN(input_size=8, hidden_size=10, batch_first=False, use_parametrized_layer_norm = True)
+        model_param_ln.W_XE = torch.nn.Parameter(model_nn_ln.W_XE.clone())
+        model_param_ln.W_EE = torch.nn.Parameter(model_nn_ln.W_EE.clone())
+        model_param_ln.bias = torch.nn.Parameter(model_nn_ln.bias.clone())
+
+        x = torch.randn(5, 3, 8)  # (seq, batch, feat)
+        output1, h_n1 = model_nn_ln(x)
+        output2, h_n2, aux_2 = model_param_ln(x)
+        # aux_2 is the local loss value that needs to be trained
+        print(output1)
+
+        pass
+
 
 if __name__ == "__main__":
     unittest.main()
