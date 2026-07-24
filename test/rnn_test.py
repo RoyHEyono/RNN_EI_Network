@@ -241,19 +241,44 @@ class TestSimpleEERNN(unittest.TestCase):
         self.assertFalse(model.use_parametrized_layer_norm)
 
     def test_parametrized_layer_norm_vs_nn_layer_norm(self):
-        model_nn_ln = SimpleEERNN(input_size=8, hidden_size=10, batch_first=False, use_parametrized_layer_norm = False)
-        model_param_ln = SimpleEERNN(input_size=8, hidden_size=10, batch_first=False, use_parametrized_layer_norm = True)
+        model_nn_ln = SimpleEERNN(input_size=8, hidden_size=10, batch_first=False, use_parametrized_layer_norm=False)
+        model_param_ln = SimpleEERNN(input_size=8, hidden_size=10, batch_first=False, use_parametrized_layer_norm=True)
         model_param_ln.W_XE = torch.nn.Parameter(model_nn_ln.W_XE.clone())
         model_param_ln.W_EE = torch.nn.Parameter(model_nn_ln.W_EE.clone())
         model_param_ln.bias = torch.nn.Parameter(model_nn_ln.bias.clone())
 
         x = torch.randn(5, 3, 8)  # (seq, batch, feat)
-        output1, h_n1 = model_nn_ln(x)
-        output2, h_n2, aux_2 = model_param_ln(x)
-        # aux_2 is the local loss value that needs to be trained
-        print(output1)
 
-        pass
+        # Train aux_loss to convergence (only proj params)
+        optimizer = torch.optim.Adam(model_param_ln.layer_norm.parameters(), lr=1e-2)
+        best_loss = float("inf")
+        best_state = None
+        for _ in range(2000):
+            outputs_list, h_t, aux_losses = model_param_ln(x)
+            total_aux = sum(aux_losses)
+            optimizer.zero_grad()
+            total_aux.backward()
+            optimizer.step()
+            if total_aux.item() < best_loss:
+                best_loss = total_aux.item()
+                best_state = {k: v.clone() for k, v in model_param_ln.layer_norm.state_dict().items()}
+
+        # Load best layer_norm state and evaluate
+        model_param_ln.layer_norm.load_state_dict(best_state)
+        with torch.no_grad():
+            output_nn, h_nn = model_nn_ln(x)
+            outputs_param, h_param, aux_param = model_param_ln(x)
+            output_param = torch.stack(outputs_param)
+
+        self.assertTrue(
+            torch.allclose(output_nn, output_param, atol=5e-2, rtol=1e-3),
+            f"Outputs diverge: max diff = {(output_nn - output_param).abs().max().item():.6f}",
+        )
+        self.assertTrue(
+            torch.allclose(h_nn, h_param, atol=5e-2, rtol=1e-3),
+            f"Hidden states diverge: max diff = {(h_nn - h_param).abs().max().item():.6f}",
+        )
+        self.assertLess(best_loss, 5e-3, f"Aux loss did not converge: {best_loss:.6f}")
 
 
 if __name__ == "__main__":
