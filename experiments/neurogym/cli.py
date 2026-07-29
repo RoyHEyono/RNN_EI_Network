@@ -34,6 +34,29 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="LayerNorm on recurrent outputs before readout (vanilla / lstm --arch)",
     )
+    p.add_argument(
+        "--param-layer-norm",
+        action="store_true",
+        help="Use ParametrizedLayerNorm instead of nn.LayerNorm inside --arch ei's SimpleEERNN core",
+    )
+    p.add_argument(
+        "--param-ln-pretrain-steps",
+        type=int,
+        default=2000,
+        help="Steps calibrating ParametrizedLayerNorm on fresh dataset batches before joint training",
+    )
+    p.add_argument(
+        "--lr-norm",
+        type=float,
+        default=1e-2,
+        help="Adam lr for ParametrizedLayerNorm's mean_net/var_net (pretraining and joint training)",
+    )
+    p.add_argument(
+        "--aux-loss-weight",
+        type=float,
+        default=1.0,
+        help="Weight applied to ParametrizedLayerNorm's aux_loss when summed into the joint training loss",
+    )
     p.add_argument("--log-interval", type=int, default=100)
     p.add_argument(
         "--eval-trials",

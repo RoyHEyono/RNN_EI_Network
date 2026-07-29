@@ -75,6 +75,52 @@ def trial_eval_accuracy(model: nn.Module, env: Any, device: torch.device, num_tr
     return perf / num_trial
 
 
+def pretrain_parametrized_layer_norm(
+    model: nn.Module,
+    dataset: Any,
+    optimizer_norm: optim.Optimizer,
+    steps: int,
+    device: torch.device,
+    log_interval: int = 100,
+    use_wandb: bool = False,
+) -> float:
+    """Calibrate SimpleEERNN's ParametrizedLayerNorm on fresh dataset batches.
+
+    Only ``optimizer_norm.step()`` is called here, so W_XE/W_EE/bias/head stay at their
+    initial values; ``ParametrizedLayerNorm.aux_loss`` already detaches ``pre_act``/``x_t``/
+    ``h_prev``, so no RNN gradients would reach those params here regardless. Tracks the
+    lowest-aux-loss ``state_dict`` of the norm module seen and restores it before returning,
+    matching the calibration pattern in ``test/rnn_test.py``.
+    """
+    rnn = model.rnn
+    best_loss = float("inf")
+    best_state: dict[str, torch.Tensor] | None = None
+    for i in range(steps):
+        inputs_np, labels_np = dataset()
+        inputs, _ = ng_inputs_labels_to_torch(inputs_np, labels_np, device)
+
+        optimizer_norm.zero_grad(set_to_none=True)
+        _, _, aux_losses = rnn(inputs)
+        total_aux = sum(aux_losses)
+        total_aux.backward()
+        optimizer_norm.step()
+
+        loss_val = float(total_aux.item())
+        if loss_val < best_loss:
+            best_loss = loss_val
+            best_state = {k: v.detach().clone() for k, v in rnn.layer_norm.state_dict().items()}
+        if (i + 1) % log_interval == 0:
+            print(f"[param-ln pretrain] step {i + 1}  aux_loss: {loss_val:.6f}  best: {best_loss:.6f}")
+            if use_wandb:
+                # No explicit `step=` here: the main loop below logs with explicit step=i+1
+                # starting from log_interval, and wandb requires non-decreasing step values.
+                wandb.log({"pretrain/aux_loss": loss_val, "pretrain/best_aux_loss": best_loss})
+
+    if best_state is not None:
+        rnn.layer_norm.load_state_dict(best_state)
+    return best_loss
+
+
 def train_supervised_steps(
     args: Any,
     model: nn.Module,
@@ -83,8 +129,11 @@ def train_supervised_steps(
     criterion: nn.Module,
     optimizer: optim.Optimizer,
     device: torch.device,
+    optimizer_norm: optim.Optimizer | None = None,
+    aux_loss_weight: float = 1.0,
 ) -> None:
     running_loss = 0.0
+    running_aux_loss = 0.0
     trial_accuracies: list[float] = []
     for i in range(args.epochs):
         model.train()
@@ -92,11 +141,18 @@ def train_supervised_steps(
         inputs, labels = ng_inputs_labels_to_torch(inputs_np, labels_np, device)
 
         optimizer.zero_grad(set_to_none=True)
+        if optimizer_norm is not None:
+            optimizer_norm.zero_grad(set_to_none=True)
         logits = model(inputs)
         b, t, c = logits.shape
         loss = criterion(logits.reshape(b * t, c), labels.reshape(b * t))
+        aux_loss = getattr(model, "last_aux_loss", None)
+        if aux_loss is not None:
+            loss = loss + aux_loss_weight * aux_loss
         loss.backward()
         optimizer.step()
+        if optimizer_norm is not None:
+            optimizer_norm.step()
 
         trial_acc: float | None = None
         if args.eval_trials > 0:
@@ -104,9 +160,14 @@ def train_supervised_steps(
             trial_accuracies.append(trial_acc)
 
         running_loss += float(loss.item())
+        if aux_loss is not None:
+            running_aux_loss += float(aux_loss.item())
         if (i + 1) % args.log_interval == 0:
             mean_loss = running_loss / args.log_interval
             line = f"step {i + 1}  mean_loss_last_{args.log_interval}: {mean_loss:.5f}"
+            if aux_loss is not None:
+                mean_aux_loss = running_aux_loss / args.log_interval
+                line += f"  mean_aux_loss_last_{args.log_interval}: {mean_aux_loss:.5f}"
             if trial_acc is not None:
                 line += f"  trial_acc ({args.eval_trials} trials): {trial_acc:.4f}"
             print(line)
@@ -115,11 +176,15 @@ def train_supervised_steps(
                     "train/loss_batch_mean": loss.item(),
                     "train/loss_window_mean": mean_loss,
                 }
+                if aux_loss is not None:
+                    payload["train/aux_loss_batch_mean"] = aux_loss.item()
+                    payload["train/aux_loss_window_mean"] = mean_aux_loss
                 if trial_acc is not None:
                     payload["eval/trial_accuracy"] = trial_acc
                     payload["eval/trial_accuracy_auc"] = float(np.trapezoid(trial_accuracies))
                 wandb.log(payload, step=i + 1)
             running_loss = 0.0
+            running_aux_loss = 0.0
         elif getattr(args, "wandb", False) and trial_acc is not None:
             wandb.log(
                 {

@@ -83,7 +83,6 @@ class SimpleEERNN(nn.Module):
 
     def linear_drive(self, x_t: torch.Tensor, h_prev: torch.Tensor) -> torch.Tensor:
         """One-step linear drive before activation."""
-        self._clamp_weights()
         pre_act = torch.matmul(x_t, self.W_XE.T) + torch.matmul(h_prev, self.W_EE.T)
         if self.bias is not None:
             pre_act = pre_act + self.bias
@@ -98,6 +97,13 @@ class SimpleEERNN(nn.Module):
     def forward(self, input: torch.Tensor, hx: torch.Tensor | None = None):
         if input.dim() != 3:
             raise ValueError("input must be a 3D tensor")
+
+        # Clamp once per forward call, not per timestep: an in-place clamp_ bumps the
+        # tensor's autograd version counter even when values don't change, and repeating it
+        # between timesteps that reuse the same weight across the BPTT graph breaks backward
+        # ("modified by an inplace operation") once seq_len > 1. No optimizer step happens
+        # mid-forward, so clamping once up front is numerically identical.
+        self._clamp_weights()
 
         if self.batch_first:
             batch_size, seq_len, input_size = input.shape

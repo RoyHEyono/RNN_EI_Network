@@ -131,6 +131,7 @@ class NeurogymRNNNet(nn.Module):
         hidden_size: int = 64,
         n_actions: int = 3,
         nonlinearity: str = "relu",
+        use_parametrized_layer_norm: bool = False,
     ):
         super().__init__()
         self.ob_size = ob_size
@@ -140,8 +141,10 @@ class NeurogymRNNNet(nn.Module):
             hidden_size=hidden_size,
             nonlinearity=nonlinearity,
             batch_first=True,
+            use_parametrized_layer_norm=use_parametrized_layer_norm,
         )
         self.head = EiDenseLayer(hidden_size, n_actions)
+        self.last_aux_loss: torch.Tensor | None = None
 
     def forward(self, x: torch.Tensor, return_layer_inputs: bool = False):
         if x.dim() != 3:
@@ -152,7 +155,12 @@ class NeurogymRNNNet(nn.Module):
             raise ValueError(
                 f"Expected trailing dim ob_size={self.ob_size}, got {x.shape[-1]}"
             )
-        rnn_out, _ = self.rnn(x)
+        if self.rnn.use_parametrized_layer_norm:
+            rnn_out, _, aux_losses = self.rnn(x)
+            self.last_aux_loss = sum(aux_losses)
+        else:
+            rnn_out, _ = self.rnn(x)
+            self.last_aux_loss = None
         b, s, h = rnn_out.shape
         logits = self.head(rnn_out.reshape(b * s, h)).reshape(b, s, self.n_actions)
         if return_layer_inputs:
