@@ -23,19 +23,42 @@ class layer_norm_linear_ste(nn.Module):
 
 
 class ParametrizedLayerNorm(nn.Module):
-    """Predict scalar mean/variance from ``(x_t, h_prev)`` and normalize ``pre_act``."""
+    """Predict scalar mean/variance from ``(x_t, h_prev)`` and normalize ``pre_act``.
 
-    def __init__(self, input_size: int, hidden_size: int, eps: float = 1e-5):
+    Mean and variance are each predicted by their own small MLP rather than a
+    shared linear projection, giving the stats predictor enough capacity to
+    fit nonlinear mean/variance surfaces (a single linear map converges slowly
+    on anything but an already-linear target).
+    """
+
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        eps: float = 1e-5,
+        stats_hidden_size: int | None = None,
+    ):
         super().__init__()
         self.eps = eps
-        self.proj = nn.Linear(input_size + hidden_size, 2)
+        feat_dim = input_size + hidden_size
+        stats_hidden_size = stats_hidden_size or feat_dim
+        self.mean_net = nn.Sequential(
+            nn.Linear(feat_dim, stats_hidden_size),
+            nn.ReLU(),
+            nn.Linear(stats_hidden_size, 1),
+        )
+        self.var_net = nn.Sequential(
+            nn.Linear(feat_dim, stats_hidden_size),
+            nn.ReLU(),
+            nn.Linear(stats_hidden_size, 1),
+        )
 
     def _predict_stats(
         self, x_t: torch.Tensor, h_prev: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        stats = self.proj(torch.cat([x_t, h_prev], dim=-1))  # (B, 2)
-        pred_mean = stats[..., :1]
-        pred_var = F.softplus(stats[..., 1:]) + self.eps
+        feat = torch.cat([x_t, h_prev], dim=-1)
+        pred_mean = self.mean_net(feat)
+        pred_var = F.softplus(self.var_net(feat)) + self.eps
         return pred_mean, pred_var
 
     def aux_loss(

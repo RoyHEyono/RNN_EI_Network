@@ -87,21 +87,25 @@ class TestParametrizedLayerNorm(unittest.TestCase):
         out.pow(2).mean().backward()
         self.assertIsNotNone(pre_act.grad)
         self.assertGreater(pre_act.grad.abs().sum().item(), 0.0)
-        self.assertIsNone(self.module.proj.weight.grad)
-        self.assertIsNone(self.module.proj.bias.grad)
+        for p in self.module.mean_net.parameters():
+            self.assertIsNone(p.grad)
+        for p in self.module.var_net.parameters():
+            self.assertIsNone(p.grad)
 
-    def test_aux_loss_trains_proj(self):
-        """Aux trains ``proj`` only; must not send grads into ``x_t`` / ``h_prev`` / ``pre_act``."""
+    def test_aux_loss_trains_stats_nets(self):
+        """Aux trains ``mean_net``/``var_net`` only; must not send grads into ``x_t`` / ``h_prev`` / ``pre_act``."""
         self.module.zero_grad(set_to_none=True)
         x_t = self.x_t.detach().requires_grad_(True)
         h_prev = self.h_prev.detach().requires_grad_(True)
         pre_act = self.pre_act.detach().requires_grad_(True)
         _, aux = self.module(pre_act, x_t, h_prev)
         aux.backward()
-        self.assertIsNotNone(self.module.proj.weight.grad)
-        self.assertIsNotNone(self.module.proj.bias.grad)
-        self.assertGreater(self.module.proj.weight.grad.abs().sum().item(), 0.0)
-        self.assertGreater(self.module.proj.bias.grad.abs().sum().item(), 0.0)
+        for p in self.module.mean_net.parameters():
+            self.assertIsNotNone(p.grad)
+            self.assertGreater(p.grad.abs().sum().item(), 0.0)
+        for p in self.module.var_net.parameters():
+            self.assertIsNotNone(p.grad)
+            self.assertGreater(p.grad.abs().sum().item(), 0.0)
         self.assertIsNone(x_t.grad)
         self.assertIsNone(h_prev.grad)
         self.assertIsNone(pre_act.grad)
@@ -119,7 +123,8 @@ class TestParametrizedLayerNorm(unittest.TestCase):
             self.input_size, self.hidden_size, eps=self.eps
         )
         x_t, h_prev, pre_act = self._exact_batch()
-        opt = torch.optim.Adam(module.parameters(), lr=1e-2)
+        num_steps = 4000
+        opt = torch.optim.Adam(module.parameters(), lr=3e-3)
 
         with torch.no_grad():
             _, init_aux = module(pre_act, x_t, h_prev)
@@ -127,7 +132,7 @@ class TestParametrizedLayerNorm(unittest.TestCase):
 
         best_aux = float("inf")
         best_state = None
-        for _ in range(4000):
+        for _ in range(num_steps):
             opt.zero_grad()
             _, aux = module(pre_act, x_t, h_prev)
             aux.backward()
@@ -217,7 +222,7 @@ class TestSimpleEERNN(unittest.TestCase):
         self.assertEqual(output.shape, (2, 4, 3))
         self.assertEqual(h_n.shape, (4, 3))
 
-    def test_parametrized_layer_norm_proj_shape(self):
+    def test_parametrized_layer_norm_stats_nets_shape(self):
         input_size, hidden_size = 6, 8
         model = SimpleEERNN(
             input_size=input_size,
@@ -225,9 +230,11 @@ class TestSimpleEERNN(unittest.TestCase):
             use_layer_norm=True,
             use_parametrized_layer_norm=True,
         )
-        self.assertIsInstance(model.layer_norm.proj, nn.Linear)
-        self.assertEqual(model.layer_norm.proj.in_features, input_size + hidden_size)
-        self.assertEqual(model.layer_norm.proj.out_features, 2)
+        feat_dim = input_size + hidden_size
+        for net in (model.layer_norm.mean_net, model.layer_norm.var_net):
+            self.assertIsInstance(net, nn.Sequential)
+            self.assertEqual(net[0].in_features, feat_dim)
+            self.assertEqual(net[-1].out_features, 1)
 
     def test_parametrized_layer_norm_forward_shapes(self):
         model = SimpleEERNN(
