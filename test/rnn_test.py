@@ -245,7 +245,7 @@ class TestSimpleEERNN(unittest.TestCase):
             use_parametrized_layer_norm=True,
         )
         x = torch.randn(4, 7, 6)
-        output, h_n = model(x)
+        output, h_n, aux_losses = model(x)
         self.assertEqual(output.shape, (4, 7, 8))
         self.assertEqual(h_n.shape, (4, 8))
 
@@ -267,7 +267,7 @@ class TestSimpleEERNN(unittest.TestCase):
         optimizer = torch.optim.Adam(model_param_ln.layer_norm.parameters(), lr=1e-2)
         best_loss = float("inf")
         best_state = None
-        for _ in range(10000):
+        for _ in range(1000):
             outputs_list, h_t, aux_losses = model_param_ln(x)
             total_aux = sum(aux_losses)
             optimizer.zero_grad()
@@ -281,8 +281,7 @@ class TestSimpleEERNN(unittest.TestCase):
         model_param_ln.layer_norm.load_state_dict(best_state)
         with torch.no_grad():
             output_nn, h_nn = model_nn_ln(x)
-            outputs_param, h_param, aux_param = model_param_ln(x)
-            output_param = torch.stack(outputs_param)
+            output_param, h_param, aux_param = model_param_ln(x)
 
         self.assertTrue(
             torch.allclose(output_nn, output_param, atol=5e-2, rtol=1e-3),
@@ -320,7 +319,7 @@ class TestSimpleEERNN(unittest.TestCase):
         optimizer = torch.optim.Adam(model_param_ln.layer_norm.parameters(), lr=1e-2)
         best_loss = float("inf")
         best_state = None
-        for _ in range(10000):
+        for _ in range(5000):
             outputs_list, h_t, aux_losses = model_param_ln(x)
             total_aux = sum(aux_losses)
             optimizer.zero_grad()
@@ -334,8 +333,7 @@ class TestSimpleEERNN(unittest.TestCase):
         model_param_ln.layer_norm.load_state_dict(best_state)
         with torch.no_grad():
             output_nn, h_nn = model_nn_ln(x)
-            outputs_param, h_param, aux_param = model_param_ln(x)
-            output_param = torch.stack(outputs_param)
+            output_param, h_param, aux_param = model_param_ln(x)
 
         self.assertTrue(
             torch.allclose(output_nn, output_param, atol=5e-2, rtol=1e-3),

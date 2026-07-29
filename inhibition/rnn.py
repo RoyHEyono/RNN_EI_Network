@@ -136,7 +136,7 @@ class SimpleEERNN(nn.Module):
             output = output.transpose(0, 1)  # (batch, seq, hidden)
 
         if self.use_parametrized_layer_norm:
-            return outputs, h_t, aux_losses
+            return output, h_t, aux_losses
 
         return output, h_t
 
