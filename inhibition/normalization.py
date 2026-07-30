@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from inhibition.init import calc_ln_mu_sigma
+
 
 class layer_norm_linear_ste(nn.Module):
     def __init__(self, normalized_shape, eps=1e-5, elementwise_affine=False):
@@ -52,6 +54,27 @@ class ParametrizedLayerNorm(nn.Module):
             nn.ReLU(),
             nn.Linear(stats_hidden_size, 1),
         )
+        for net in (self.mean_net, self.var_net):
+            for layer in net:
+                if isinstance(layer, nn.Linear):
+                    self._lognormal_weight_(layer.weight)
+
+    @staticmethod
+    def _lognormal_weight_(
+        weight: torch.Tensor, numerator: float = 2.0, k: float = 1.0
+    ) -> None:
+        """Lognormal init matching ``inhibition.init``'s excitatory scheme.
+
+        Fan-in scaling only: ``excitatory_weight``'s ``(ne - 1)`` factor divides by
+        zero on the single-unit output layers here. Unlike ``excitatory_weight`` this
+        sets no ``clamp`` marker, so these weights are free to take either sign once
+        training starts.
+        """
+        _, n_in = weight.shape
+        target_std = (numerator / n_in) ** 0.5
+        mu, sigma = calc_ln_mu_sigma(target_std * k, target_std**2)
+        with torch.no_grad():
+            weight.log_normal_(mean=float(mu), std=float(sigma))
 
     def _predict_stats(
         self, x_t: torch.Tensor, h_prev: torch.Tensor

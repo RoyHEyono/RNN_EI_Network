@@ -132,8 +132,11 @@ def train_supervised_steps(
     optimizer_norm: optim.Optimizer | None = None,
     aux_loss_weight: float = 1.0,
 ) -> None:
-    running_loss = 0.0
-    running_aux_loss = 0.0
+    # Best (lowest) losses within the current log window; reset every log_interval
+    # so they reflect recent training rather than a stale global minimum.
+    best_loss = float("inf")
+    best_aux_loss = float("inf")
+    best_trial_acc = float("-inf")
     trial_accuracies: list[float] = []
     for i in range(args.epochs):
         model.train()
@@ -158,38 +161,29 @@ def train_supervised_steps(
         if args.eval_trials > 0:
             trial_acc = trial_eval_accuracy(model, env, device, args.eval_trials)
             trial_accuracies.append(trial_acc)
+            best_trial_acc = max(best_trial_acc, trial_acc)
 
-        running_loss += float(loss.item())
+        best_loss = min(best_loss, float(loss.item()))
         if aux_loss is not None:
-            running_aux_loss += float(aux_loss.item())
-        if (i + 1) % args.log_interval == 0:
-            mean_loss = running_loss / args.log_interval
-            line = f"step {i + 1}  mean_loss_last_{args.log_interval}: {mean_loss:.5f}"
+            best_aux_loss = min(best_aux_loss, float(aux_loss.item()))
+        if getattr(args, "wandb", False):
+            payload: dict[str, Any] = {"train/best_loss": best_loss}
             if aux_loss is not None:
-                mean_aux_loss = running_aux_loss / args.log_interval
-                line += f"  mean_aux_loss_last_{args.log_interval}: {mean_aux_loss:.5f}"
+                payload["train/best_aux_loss"] = best_aux_loss
             if trial_acc is not None:
-                line += f"  trial_acc ({args.eval_trials} trials): {trial_acc:.4f}"
+                payload["eval/trial_accuracy"] = best_trial_acc
+                payload["eval/trial_accuracy_auc"] = float(np.trapezoid(trial_accuracies))
+            wandb.log(payload, step=i + 1)
+
+        if (i + 1) % args.log_interval == 0:
+            line = f"step {i + 1}  best_loss_last_{args.log_interval}: {best_loss:.5f}"
+            if aux_loss is not None:
+                line += f"  best_aux_loss_last_{args.log_interval}: {best_aux_loss:.5f}"
+            if trial_acc is not None:
+                line += (
+                    f"  best_trial_acc_last_{args.log_interval} ({args.eval_trials} trials): {best_trial_acc:.4f}"
+                )
             print(line)
-            if getattr(args, "wandb", False):
-                payload: dict[str, Any] = {
-                    "train/loss_batch_mean": loss.item(),
-                    "train/loss_window_mean": mean_loss,
-                }
-                if aux_loss is not None:
-                    payload["train/aux_loss_batch_mean"] = aux_loss.item()
-                    payload["train/aux_loss_window_mean"] = mean_aux_loss
-                if trial_acc is not None:
-                    payload["eval/trial_accuracy"] = trial_acc
-                    payload["eval/trial_accuracy_auc"] = float(np.trapezoid(trial_accuracies))
-                wandb.log(payload, step=i + 1)
-            running_loss = 0.0
-            running_aux_loss = 0.0
-        elif getattr(args, "wandb", False) and trial_acc is not None:
-            wandb.log(
-                {
-                    "eval/trial_accuracy": trial_acc,
-                    "eval/trial_accuracy_auc": float(np.trapezoid(trial_accuracies)),
-                },
-                step=i + 1,
-            )
+            best_loss = float("inf")
+            best_aux_loss = float("inf")
+            best_trial_acc = float("-inf")
