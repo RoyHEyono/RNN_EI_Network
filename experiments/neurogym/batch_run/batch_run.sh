@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array=0-49
+#SBATCH --array=0-59
 #SBATCH --partition=long
 #SBATCH --gres=gpu:rtx8000:1
 #SBATCH --mem=16GB
@@ -25,6 +25,7 @@ lr=$(echo $random_params | python -c "import sys, json; config=json.load(sys.std
 seed=$(echo $random_params | python -c "import sys, json; config=json.load(sys.stdin); print(config['seed'])")
 arch=$(echo $random_params | python -c "import sys, json; config=json.load(sys.stdin); print(config.get('arch', 'ei'))")
 use_layer_norm=$(echo $random_params | python -c "import sys, json; c=json.load(sys.stdin); print(1 if c.get('layer_norm') is True else 0)")
+param_ln=$(echo $random_params | python -c "import sys, json; c=json.load(sys.stdin); print(1 if c.get('param_layer_norm') is True else 0)")
 
 if [[ "$arch" == "vanilla" ]]; then
   if [[ "$use_layer_norm" == "1" ]]; then
@@ -38,6 +39,8 @@ elif [[ "$arch" == "lstm" ]]; then
   else
     arch_tag="lstm_noln"
   fi
+elif [[ "$arch" == "ei" ]] && [[ "$param_ln" == "1" ]]; then
+  arch_tag="ei_param_ln"
 else
   arch_tag="$arch"
 fi
@@ -62,5 +65,8 @@ run_args=(
 )
 if [[ "$use_layer_norm" == "1" ]] && [[ "$arch" == "vanilla" || "$arch" == "lstm" ]]; then
   run_args+=(--layer-norm)
+fi
+if [[ "$param_ln" == "1" ]] && [[ "$arch" == "ei" ]]; then
+  run_args+=(--param-layer-norm)
 fi
 "${run_args[@]}"

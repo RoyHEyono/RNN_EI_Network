@@ -80,6 +80,8 @@ class SimpleEERNN(nn.Module):
                 self.W_EE.clamp_(min=0)
             if self.bias is not None and getattr(self.bias, "clamp", False):
                 self.bias.clamp_(min=0)
+            if self.use_parametrized_layer_norm and self.layer_norm is not None:
+                self.layer_norm._clamp_weights()
 
     def linear_drive(self, x_t: torch.Tensor, h_prev: torch.Tensor) -> torch.Tensor:
         """One-step linear drive before activation."""

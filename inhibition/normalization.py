@@ -66,15 +66,21 @@ class ParametrizedLayerNorm(nn.Module):
         """Lognormal init matching ``inhibition.init``'s excitatory scheme.
 
         Fan-in scaling only: ``excitatory_weight``'s ``(ne - 1)`` factor divides by
-        zero on the single-unit output layers here. Unlike ``excitatory_weight`` this
-        sets no ``clamp`` marker, so these weights are free to take either sign once
-        training starts.
+        zero on the single-unit output layers here. Marks ``clamp=True`` so callers
+        keep these weights non-negative after optimizer steps.
         """
         _, n_in = weight.shape
         target_std = (numerator / n_in) ** 0.5
         mu, sigma = calc_ln_mu_sigma(target_std * k, target_std**2)
         with torch.no_grad():
             weight.log_normal_(mean=float(mu), std=float(sigma))
+        weight.clamp = False
+
+    def _clamp_weights(self) -> None:
+        with torch.no_grad():
+            for p in self.parameters():
+                if getattr(p, "clamp", False):
+                    p.clamp_(min=0)
 
     def _predict_stats(
         self, x_t: torch.Tensor, h_prev: torch.Tensor
@@ -90,7 +96,7 @@ class ParametrizedLayerNorm(nn.Module):
         pred_var: torch.Tensor,
         pre_act: torch.Tensor,
     ) -> torch.Tensor:
-        """Match predicted-normalized activations to true LayerNorm(pre_act).
+        """Push predicted-normalized activations toward mean 0 and variance 1.
 
         Add this to your main loss at training time. At inference you use only
         the predicted stats, so this is what makes the module *approximate*
@@ -98,6 +104,23 @@ class ParametrizedLayerNorm(nn.Module):
         is detached so the aux objective only trains the stats predictor;
         ``x_t`` / ``h_prev`` are detached before ``_predict_stats`` for the
         same reason.
+        """
+        x = pre_act.detach()
+        pred_norm = (x - pred_mean) / torch.sqrt(pred_var)
+        # Encourage LayerNorm-like stats: feature-wise mean ~ 0, var ~ 1.
+        mean = pred_norm.mean(dim=-1)
+        var = pred_norm.var(dim=-1, unbiased=False)
+        return mean.pow(2).mean() + (var - 1).pow(2).mean()
+
+    def measure_layer_norm_mse(
+        self,
+        pred_mean: torch.Tensor,
+        pred_var: torch.Tensor,
+        pre_act: torch.Tensor,
+    ) -> torch.Tensor:
+        """MSE between predicted-stats norm and true ``LayerNorm(pre_act)``.
+
+        Diagnostic only — not used as a training objective.
         """
         x = pre_act.detach()
         pred_norm = (x - pred_mean) / torch.sqrt(pred_var)

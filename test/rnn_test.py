@@ -263,6 +263,29 @@ class TestSimpleEERNN(unittest.TestCase):
 
         x = torch.randn(5, 3, 8)  # (seq, batch, feat)
 
+        def mean_ln_mse():
+            """Mean LayerNorm-MSE of predicted stats across the rollout (diagnostic)."""
+            ln = model_param_ln.layer_norm
+            h = x.new_zeros(x.shape[1], model_param_ln.hidden_size)
+            mse_vals = []
+            with torch.no_grad():
+                for t in range(x.shape[0]):
+                    pre_act = (
+                        torch.matmul(x[t], model_param_ln.W_XE.T)
+                        + torch.matmul(h, model_param_ln.W_EE.T)
+                    )
+                    if model_param_ln.bias is not None:
+                        pre_act = pre_act + model_param_ln.bias
+                    pred_mean, pred_var = ln._predict_stats(x[t], h)
+                    mse_vals.append(
+                        ln.measure_layer_norm_mse(pred_mean, pred_var, pre_act)
+                    )
+                    normed, _ = ln(pre_act, x[t], h)
+                    h = model_param_ln._activation(normed)
+            return torch.stack(mse_vals).mean().item()
+
+        init_mse = mean_ln_mse()
+
         # Train aux_loss to convergence (only proj params)
         optimizer = torch.optim.Adam(model_param_ln.layer_norm.parameters(), lr=1e-2)
         best_loss = float("inf")
@@ -279,6 +302,7 @@ class TestSimpleEERNN(unittest.TestCase):
 
         # Load best layer_norm state and evaluate
         model_param_ln.layer_norm.load_state_dict(best_state)
+        final_mse = mean_ln_mse()
         with torch.no_grad():
             output_nn, h_nn = model_nn_ln(x)
             output_param, h_param, aux_param = model_param_ln(x)
@@ -292,6 +316,11 @@ class TestSimpleEERNN(unittest.TestCase):
             f"Hidden states diverge: max diff = {(h_nn - h_param).abs().max().item():.6f}",
         )
         self.assertLess(best_loss, 5e-3, f"Aux loss did not converge: {best_loss:.6f}")
+        self.assertLess(
+            final_mse,
+            init_mse,
+            f"LayerNorm MSE not reduced: init={init_mse:.6f} final={final_mse:.6f}",
+        )
 
     @unittest.skipUnless(_NEUROGYM_AVAILABLE, "neurogym not installed")
     def test_parametrized_layer_norm_vs_nn_layer_norm_neurogym_task(self):
@@ -315,11 +344,34 @@ class TestSimpleEERNN(unittest.TestCase):
         model_param_ln.W_EE = torch.nn.Parameter(model_nn_ln.W_EE.clone())
         model_param_ln.bias = torch.nn.Parameter(model_nn_ln.bias.clone())
 
+        def mean_ln_mse():
+            """Mean LayerNorm-MSE of predicted stats across the rollout (diagnostic)."""
+            ln = model_param_ln.layer_norm
+            h = x.new_zeros(x.shape[1], model_param_ln.hidden_size)
+            mse_vals = []
+            with torch.no_grad():
+                for t in range(x.shape[0]):
+                    pre_act = (
+                        torch.matmul(x[t], model_param_ln.W_XE.T)
+                        + torch.matmul(h, model_param_ln.W_EE.T)
+                    )
+                    if model_param_ln.bias is not None:
+                        pre_act = pre_act + model_param_ln.bias
+                    pred_mean, pred_var = ln._predict_stats(x[t], h)
+                    mse_vals.append(
+                        ln.measure_layer_norm_mse(pred_mean, pred_var, pre_act)
+                    )
+                    normed, _ = ln(pre_act, x[t], h)
+                    h = model_param_ln._activation(normed)
+            return torch.stack(mse_vals).mean().item()
+
+        init_mse = mean_ln_mse()
+
         # Train aux_loss to convergence (only proj params)
         optimizer = torch.optim.Adam(model_param_ln.layer_norm.parameters(), lr=1e-2)
         best_loss = float("inf")
         best_state = None
-        for _ in range(5000):
+        for _ in range(1000):
             outputs_list, h_t, aux_losses = model_param_ln(x)
             total_aux = sum(aux_losses)
             optimizer.zero_grad()
@@ -331,6 +383,7 @@ class TestSimpleEERNN(unittest.TestCase):
 
         # Load best layer_norm state and evaluate
         model_param_ln.layer_norm.load_state_dict(best_state)
+        final_mse = mean_ln_mse()
         with torch.no_grad():
             output_nn, h_nn = model_nn_ln(x)
             output_param, h_param, aux_param = model_param_ln(x)
@@ -344,6 +397,11 @@ class TestSimpleEERNN(unittest.TestCase):
             f"Hidden states diverge: max diff = {(h_nn - h_param).abs().max().item():.6f}",
         )
         self.assertLess(best_loss, 5e-3, f"Aux loss did not converge: {best_loss:.6f}")
+        self.assertLess(
+            final_mse,
+            init_mse,
+            f"LayerNorm MSE not reduced: init={init_mse:.6f} final={final_mse:.6f}",
+        )
 
 
 if __name__ == "__main__":

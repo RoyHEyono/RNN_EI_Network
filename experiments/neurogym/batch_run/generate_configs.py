@@ -28,7 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=(
             "NeuroGym batch_run config generator. Grid over LEARNING_RATES with fixed "
-            f"seed {GRID_SEED}; per lr: ei, vanilla±LN, lstm±LN — 5×len(LR) rows."
+            f"seed {GRID_SEED}; per lr: ei, ei+param-ln, vanilla±LN, lstm±LN — 6×len(LR) rows."
         )
     )
     p.add_argument(
@@ -45,6 +45,10 @@ def grid_configs() -> list[dict[str, float | int | str | bool | None]]:
     for lr in LEARNING_RATES:
         # EI: no --layer-norm (N/A); vanilla/lstm use the flag from JSON.
         configs.append({"lr": lr, "seed": GRID_SEED, "arch": "ei", "layer_norm": True})
+        # EI with ParametrizedLayerNorm (param-ln specific hparams left at CLI defaults).
+        configs.append(
+            {"lr": lr, "seed": GRID_SEED, "arch": "ei", "param_layer_norm": True}
+        )
         configs.append(
             {"lr": lr, "seed": GRID_SEED, "arch": "vanilla", "layer_norm": True}
         )
@@ -67,7 +71,7 @@ def main() -> None:
     args.out.write_text(json.dumps(configs, indent=2), encoding="utf-8")
     n = len(configs)
     n_lr = len(LEARNING_RATES)
-    print(f"Wrote {n} configs ({n_lr} LRs × 5: ei, vanilla±LN, lstm±LN) to {args.out}")
+    print(f"Wrote {n} configs ({n_lr} LRs × 6: ei, ei+param-ln, vanilla±LN, lstm±LN) to {args.out}")
     print(f"SLURM: #SBATCH --array=0-{n - 1}")
 
 
