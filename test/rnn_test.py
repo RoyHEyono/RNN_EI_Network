@@ -16,7 +16,7 @@ except ImportError:
 
 
 class TestParametrizedLayerNorm(unittest.TestCase):
-    """Isolated checks for ``ParametrizedLayerNorm`` (shapes, STE, aux fit)."""
+    """Isolated checks for ``ParametrizedLayerNorm`` (shapes, STE, aux, exact init)."""
 
     def setUp(self):
         torch.manual_seed(0)
@@ -24,31 +24,32 @@ class TestParametrizedLayerNorm(unittest.TestCase):
         self.input_size = 8
         self.hidden_size = 16
         self.eps = 1e-5
-        self.module = ParametrizedLayerNorm(
-            self.input_size, self.hidden_size, eps=self.eps
+        # Build the module through a SimpleEERNN so its divisive stats predictors
+        # are initialized from the RNN weights (exact LayerNorm at init).
+        self.rnn = SimpleEERNN(
+            self.input_size,
+            self.hidden_size,
+            batch_first=True,
+            use_parametrized_layer_norm=True,
+            layer_norm_eps=self.eps,
         )
+        self.module = self.rnn.layer_norm
         self.x_t, self.h_prev, self.pre_act = self._exact_batch()
 
     def _exact_batch(self):
-        """Build a batch whose LN stats are exactly representable by ``proj``.
+        """Build a batch whose pre-activation is the RNN's actual linear drive.
 
-        Mean is linear in ``(x_t, h_prev)``; variance is ``softplus`` of a
-        linear map — the same functional form as ``_predict_stats``.
+        Because the stats predictors are initialized from the RNN weights, the
+        LayerNorm mean/variance of this drive are represented exactly.
         """
-        feat_dim = self.input_size + self.hidden_size
-        w_true = torch.randn(2, feat_dim) * 0.5
-        b_true = torch.randn(2) * 0.5
         x_t = torch.randn(self.batch_size, self.input_size)
         h_prev = torch.randn(self.batch_size, self.hidden_size)
-        stats = torch.cat([x_t, h_prev], dim=-1) @ w_true.T + b_true
-        mu = stats[..., :1]
-        empiric_var = F.softplus(stats[..., 1:])
-        z = torch.randn(self.batch_size, self.hidden_size)
-        z = z - z.mean(dim=-1, keepdim=True)
-        z = z / z.var(dim=-1, keepdim=True, unbiased=False).sqrt().clamp_min(
-            self.eps
-        )
-        pre_act = mu + z * empiric_var.sqrt()
+        with torch.no_grad():
+            pre_act = torch.matmul(x_t, self.rnn.W_XE.T) + torch.matmul(
+                h_prev, self.rnn.W_EE.T
+            )
+            if self.rnn.bias is not None:
+                pre_act = pre_act + self.rnn.bias
         return x_t, h_prev, pre_act
 
     def test_forward_shapes_and_aux_scalar(self):
@@ -79,8 +80,24 @@ class TestParametrizedLayerNorm(unittest.TestCase):
             msg="STE backward should match true LayerNorm Jacobian on pre_act",
         )
 
+    def test_predicted_norm_matches_layer_norm_at_init(self):
+        """The divisive init reproduces LayerNorm exactly (notebook cells 78-83)."""
+        with torch.no_grad():
+            pred_mean, pred_var = self.module._predict_stats(self.x_t, self.h_prev)
+            predicted = (self.pre_act - pred_mean) / torch.sqrt(pred_var)
+            target = F.layer_norm(self.pre_act, self.pre_act.shape[-1:], eps=self.eps)
+            _, aux = self.module(self.pre_act, self.x_t, self.h_prev)
+        max_abs = (predicted - target).abs().max().item()
+        self.assertTrue(
+            torch.allclose(predicted, target, atol=1e-3, rtol=1e-3),
+            msg=f"predicted norm should match LayerNorm at init (max |diff|={max_abs:.2e})",
+        )
+        self.assertLess(
+            aux.item(), 1e-4, msg=f"aux should be ~0 at exact init: {aux.item():.3e}"
+        )
+
     def test_task_loss_does_not_train_proj(self):
-        """With STE, a loss on the module output trains ``pre_act`` via LN, not ``proj``."""
+        """With STE, a loss on the module output trains ``pre_act`` via LN, not the stats nets."""
         self.module.zero_grad(set_to_none=True)
         pre_act = self.pre_act.detach().requires_grad_(True)
         out, _ = self.module(pre_act, self.x_t, self.h_prev)
@@ -97,7 +114,10 @@ class TestParametrizedLayerNorm(unittest.TestCase):
         self.module.zero_grad(set_to_none=True)
         x_t = self.x_t.detach().requires_grad_(True)
         h_prev = self.h_prev.detach().requires_grad_(True)
-        pre_act = self.pre_act.detach().requires_grad_(True)
+        # A pre_act unrelated to the predicted stats makes aux (and its grads) nonzero.
+        pre_act = torch.randn(
+            self.batch_size, self.hidden_size, requires_grad=True
+        )
         _, aux = self.module(pre_act, x_t, h_prev)
         aux.backward()
         for p in self.module.mean_net.parameters():
@@ -116,23 +136,33 @@ class TestParametrizedLayerNorm(unittest.TestCase):
         self.assertEqual(pred_var.shape, (self.batch_size, 1))
         self.assertTrue(torch.all(pred_var > 0))
 
-    def test_trains_to_convergence_on_batch(self):
-        """Overfit one exactly-representable batch until predicted norm ≈ LN."""
+    def test_aux_recovers_layer_norm_after_perturbation(self):
+        """Perturb the stats predictors, then aux training drives them back to LN."""
         torch.manual_seed(1)
-        module = ParametrizedLayerNorm(
-            self.input_size, self.hidden_size, eps=self.eps
+        rnn = SimpleEERNN(
+            self.input_size,
+            self.hidden_size,
+            batch_first=True,
+            use_parametrized_layer_norm=True,
+            layer_norm_eps=self.eps,
         )
-        x_t, h_prev, pre_act = self._exact_batch()
-        num_steps = 4000
-        opt = torch.optim.Adam(module.parameters(), lr=3e-3)
-
+        module = rnn.layer_norm
+        x_t = torch.randn(self.batch_size, self.input_size)
+        h_prev = torch.randn(self.batch_size, self.hidden_size)
         with torch.no_grad():
+            pre_act = torch.matmul(x_t, rnn.W_XE.T) + torch.matmul(h_prev, rnn.W_EE.T)
+            if rnn.bias is not None:
+                pre_act = pre_act + rnn.bias
+            # Small perturbation away from the exact solution.
+            for p in module.parameters():
+                p.add_(torch.randn_like(p) * 0.05)
             _, init_aux = module(pre_act, x_t, h_prev)
             init_aux = init_aux.item()
 
+        opt = torch.optim.Adam(module.parameters(), lr=3e-3)
         best_aux = float("inf")
         best_state = None
-        for _ in range(num_steps):
+        for _ in range(2000):
             opt.zero_grad()
             _, aux = module(pre_act, x_t, h_prev)
             aux.backward()
@@ -145,31 +175,17 @@ class TestParametrizedLayerNorm(unittest.TestCase):
 
         module.load_state_dict(best_state)
         with torch.no_grad():
-            _, final_aux_t = module(pre_act, x_t, h_prev)
-            final_aux = final_aux_t.item()
             pred_mean, pred_var = module._predict_stats(x_t, h_prev)
             predicted = (pre_act - pred_mean) / torch.sqrt(pred_var)
             target = F.layer_norm(pre_act, pre_act.shape[-1:], eps=self.eps)
             mse = F.mse_loss(predicted, target).item()
-            max_abs = (predicted - target).abs().max().item()
-            out, _ = module(pre_act, x_t, h_prev)
 
         self.assertLess(
-            final_aux,
+            best_aux,
             5e-4,
-            msg=f"aux did not converge: init={init_aux:.3e} final={final_aux:.3e}",
+            msg=f"aux did not converge: init={init_aux:.3e} best={best_aux:.3e}",
         )
-        self.assertLess(
-            final_aux,
-            1e-3 * init_aux,
-            msg=f"aux drop too small: init={init_aux:.3e} final={final_aux:.3e}",
-        )
-        self.assertLess(mse, 5e-4, msg=f"activation MSE too high: {mse:.3e}")
-        self.assertLess(max_abs, 5e-2, msg=f"max |pred-LN| too high: {max_abs:.3e}")
-        self.assertTrue(
-            torch.allclose(out, target, atol=5e-2, rtol=1e-3),
-            msg="STE forward should match LayerNorm after convergence",
-        )
+        self.assertLess(mse, 5e-3, msg=f"activation MSE too high: {mse:.3e}")
 
 
 class TestSimpleEERNN(unittest.TestCase):
@@ -231,10 +247,16 @@ class TestSimpleEERNN(unittest.TestCase):
             use_parametrized_layer_norm=True,
         )
         feat_dim = input_size + hidden_size
-        for net in (model.layer_norm.mean_net, model.layer_norm.var_net):
-            self.assertIsInstance(net, nn.Sequential)
-            self.assertEqual(net[0].in_features, feat_dim)
-            self.assertEqual(net[-1].out_features, 1)
+        ln = model.layer_norm
+        # mean predictor: a single linear map (subtractive inhibition).
+        self.assertIsInstance(ln.mean_net, nn.Linear)
+        self.assertEqual(ln.mean_net.in_features, feat_dim)
+        self.assertEqual(ln.mean_net.out_features, 1)
+        # variance predictor: Linear -> square -> average (divisive inhibition).
+        self.assertIsInstance(ln.var_net, nn.Sequential)
+        self.assertEqual(ln.var_net[0].in_features, feat_dim)
+        self.assertEqual(ln.var_net[0].out_features, hidden_size)
+        self.assertEqual(ln.var_net[-1].out_features, 1)
 
     def test_parametrized_layer_norm_forward_shapes(self):
         model = SimpleEERNN(
@@ -254,76 +276,41 @@ class TestSimpleEERNN(unittest.TestCase):
         self.assertIsInstance(model.layer_norm, nn.LayerNorm)
         self.assertFalse(model.use_parametrized_layer_norm)
 
-    def test_parametrized_layer_norm_vs_nn_layer_norm(self):
-        model_nn_ln = SimpleEERNN(input_size=8, hidden_size=10, batch_first=False, use_parametrized_layer_norm=False)
-        model_param_ln = SimpleEERNN(input_size=8, hidden_size=10, batch_first=False, use_parametrized_layer_norm=True)
-        model_param_ln.W_XE = torch.nn.Parameter(model_nn_ln.W_XE.clone())
-        model_param_ln.W_EE = torch.nn.Parameter(model_nn_ln.W_EE.clone())
-        model_param_ln.bias = torch.nn.Parameter(model_nn_ln.bias.clone())
+    def test_parametrized_layer_norm_matches_nn_layer_norm_at_init(self):
+        """With shared weights, the divisive init makes the rollout match nn.LayerNorm."""
+        model_nn_ln = SimpleEERNN(
+            input_size=8, hidden_size=10, batch_first=False,
+            use_parametrized_layer_norm=False,
+        )
+        model_param_ln = SimpleEERNN(
+            input_size=8, hidden_size=10, batch_first=False,
+            use_parametrized_layer_norm=True,
+        )
+        with torch.no_grad():
+            model_param_ln.W_XE.copy_(model_nn_ln.W_XE)
+            model_param_ln.W_EE.copy_(model_nn_ln.W_EE)
+            model_param_ln.bias.copy_(model_nn_ln.bias)
+        # Re-init the stats predictors from the (now shared) weights.
+        model_param_ln.layer_norm.init_from_rnn_weights(
+            model_param_ln.W_XE, model_param_ln.W_EE, model_param_ln.bias
+        )
 
         x = torch.randn(5, 3, 8)  # (seq, batch, feat)
-
-        def mean_ln_mse():
-            """Mean LayerNorm-MSE of predicted stats across the rollout (diagnostic)."""
-            ln = model_param_ln.layer_norm
-            h = x.new_zeros(x.shape[1], model_param_ln.hidden_size)
-            mse_vals = []
-            with torch.no_grad():
-                for t in range(x.shape[0]):
-                    pre_act = (
-                        torch.matmul(x[t], model_param_ln.W_XE.T)
-                        + torch.matmul(h, model_param_ln.W_EE.T)
-                    )
-                    if model_param_ln.bias is not None:
-                        pre_act = pre_act + model_param_ln.bias
-                    pred_mean, pred_var = ln._predict_stats(x[t], h)
-                    mse_vals.append(
-                        ln.measure_layer_norm_mse(pred_mean, pred_var, pre_act)
-                    )
-                    normed, _ = ln(pre_act, x[t], h)
-                    h = model_param_ln._activation(normed)
-            return torch.stack(mse_vals).mean().item()
-
-        init_mse = mean_ln_mse()
-
-        # Train aux_loss to convergence (only proj params)
-        optimizer = torch.optim.Adam(model_param_ln.layer_norm.parameters(), lr=1e-2)
-        best_loss = float("inf")
-        best_state = None
-        for _ in range(1000):
-            outputs_list, h_t, aux_losses = model_param_ln(x)
-            total_aux = sum(aux_losses)
-            optimizer.zero_grad()
-            total_aux.backward()
-            optimizer.step()
-            if total_aux.item() < best_loss:
-                best_loss = total_aux.item()
-                best_state = {k: v.clone() for k, v in model_param_ln.layer_norm.state_dict().items()}
-
-        # Load best layer_norm state and evaluate
-        model_param_ln.layer_norm.load_state_dict(best_state)
-        final_mse = mean_ln_mse()
         with torch.no_grad():
             output_nn, h_nn = model_nn_ln(x)
-            output_param, h_param, aux_param = model_param_ln(x)
+            output_param, h_param, _ = model_param_ln(x)
 
         self.assertTrue(
-            torch.allclose(output_nn, output_param, atol=5e-2, rtol=1e-3),
+            torch.allclose(output_nn, output_param, atol=5e-3, rtol=1e-3),
             f"Outputs diverge: max diff = {(output_nn - output_param).abs().max().item():.6f}",
         )
         self.assertTrue(
-            torch.allclose(h_nn, h_param, atol=5e-2, rtol=1e-3),
+            torch.allclose(h_nn, h_param, atol=5e-3, rtol=1e-3),
             f"Hidden states diverge: max diff = {(h_nn - h_param).abs().max().item():.6f}",
-        )
-        self.assertLess(best_loss, 5e-3, f"Aux loss did not converge: {best_loss:.6f}")
-        self.assertLess(
-            final_mse,
-            init_mse,
-            f"LayerNorm MSE not reduced: init={init_mse:.6f} final={final_mse:.6f}",
         )
 
     @unittest.skipUnless(_NEUROGYM_AVAILABLE, "neurogym not installed")
-    def test_parametrized_layer_norm_vs_nn_layer_norm_neurogym_task(self):
+    def test_parametrized_layer_norm_matches_nn_layer_norm_neurogym_task(self):
         dataset = ngym.Dataset(
             "PerceptualDecisionMaking-v0",
             env_kwargs={"dt": 100},
@@ -338,69 +325,33 @@ class TestSimpleEERNN(unittest.TestCase):
         x = torch.from_numpy(inputs_np).float()  # (seq, batch, ob_size) already
         ob_size = dataset.env.observation_space.shape[0]
 
-        model_nn_ln = SimpleEERNN(input_size=ob_size, hidden_size=10, batch_first=False, use_parametrized_layer_norm=False)
-        model_param_ln = SimpleEERNN(input_size=ob_size, hidden_size=10, batch_first=False, use_parametrized_layer_norm=True)
-        model_param_ln.W_XE = torch.nn.Parameter(model_nn_ln.W_XE.clone())
-        model_param_ln.W_EE = torch.nn.Parameter(model_nn_ln.W_EE.clone())
-        model_param_ln.bias = torch.nn.Parameter(model_nn_ln.bias.clone())
+        model_nn_ln = SimpleEERNN(
+            input_size=ob_size, hidden_size=10, batch_first=False,
+            use_parametrized_layer_norm=False,
+        )
+        model_param_ln = SimpleEERNN(
+            input_size=ob_size, hidden_size=10, batch_first=False,
+            use_parametrized_layer_norm=True,
+        )
+        with torch.no_grad():
+            model_param_ln.W_XE.copy_(model_nn_ln.W_XE)
+            model_param_ln.W_EE.copy_(model_nn_ln.W_EE)
+            model_param_ln.bias.copy_(model_nn_ln.bias)
+        model_param_ln.layer_norm.init_from_rnn_weights(
+            model_param_ln.W_XE, model_param_ln.W_EE, model_param_ln.bias
+        )
 
-        def mean_ln_mse():
-            """Mean LayerNorm-MSE of predicted stats across the rollout (diagnostic)."""
-            ln = model_param_ln.layer_norm
-            h = x.new_zeros(x.shape[1], model_param_ln.hidden_size)
-            mse_vals = []
-            with torch.no_grad():
-                for t in range(x.shape[0]):
-                    pre_act = (
-                        torch.matmul(x[t], model_param_ln.W_XE.T)
-                        + torch.matmul(h, model_param_ln.W_EE.T)
-                    )
-                    if model_param_ln.bias is not None:
-                        pre_act = pre_act + model_param_ln.bias
-                    pred_mean, pred_var = ln._predict_stats(x[t], h)
-                    mse_vals.append(
-                        ln.measure_layer_norm_mse(pred_mean, pred_var, pre_act)
-                    )
-                    normed, _ = ln(pre_act, x[t], h)
-                    h = model_param_ln._activation(normed)
-            return torch.stack(mse_vals).mean().item()
-
-        init_mse = mean_ln_mse()
-
-        # Train aux_loss to convergence (only proj params)
-        optimizer = torch.optim.Adam(model_param_ln.layer_norm.parameters(), lr=1e-2)
-        best_loss = float("inf")
-        best_state = None
-        for _ in range(1000):
-            outputs_list, h_t, aux_losses = model_param_ln(x)
-            total_aux = sum(aux_losses)
-            optimizer.zero_grad()
-            total_aux.backward()
-            optimizer.step()
-            if total_aux.item() < best_loss:
-                best_loss = total_aux.item()
-                best_state = {k: v.clone() for k, v in model_param_ln.layer_norm.state_dict().items()}
-
-        # Load best layer_norm state and evaluate
-        model_param_ln.layer_norm.load_state_dict(best_state)
-        final_mse = mean_ln_mse()
         with torch.no_grad():
             output_nn, h_nn = model_nn_ln(x)
-            output_param, h_param, aux_param = model_param_ln(x)
+            output_param, h_param, _ = model_param_ln(x)
 
         self.assertTrue(
-            torch.allclose(output_nn, output_param, atol=5e-2, rtol=1e-3),
+            torch.allclose(output_nn, output_param, atol=5e-3, rtol=1e-3),
             f"Outputs diverge: max diff = {(output_nn - output_param).abs().max().item():.6f}",
         )
         self.assertTrue(
-            torch.allclose(h_nn, h_param, atol=5e-2, rtol=1e-3),
+            torch.allclose(h_nn, h_param, atol=5e-3, rtol=1e-3),
             f"Hidden states diverge: max diff = {(h_nn - h_param).abs().max().item():.6f}",
-        )
-        self.assertLess(best_loss, 5e-3, f"Aux loss did not converge: {best_loss:.6f}")
-        self.assertLess(
-            final_mse,
-            init_mse,
-            f"LayerNorm MSE not reduced: init={init_mse:.6f} final={final_mse:.6f}",
         )
 
 

@@ -2,7 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from inhibition.init import calc_ln_mu_sigma
+from inhibition import init
+
+
+class Square(nn.Module):
+    """Point-wise square, the notebook's ``f(.)`` in the divisive-inhibition path."""
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x * x
 
 
 class layer_norm_linear_ste(nn.Module):
@@ -27,10 +34,12 @@ class layer_norm_linear_ste(nn.Module):
 class ParametrizedLayerNorm(nn.Module):
     """Predict scalar mean/variance from ``(x_t, h_prev)`` and normalize ``pre_act``.
 
-    Mean and variance are each predicted by their own small MLP rather than a
-    shared linear projection, giving the stats predictor enough capacity to
-    fit nonlinear mean/variance surfaces (a single linear map converges slowly
-    on anything but an already-linear target).
+    The predictors mirror the notebook's divisive-recurrent scheme: the mean is a
+    single linear map (subtractive inhibition) and the variance is
+    ``B_EI @ (B_IX @ feat)²`` (a ``Linear → square → average`` divisive stack).
+    Calling :meth:`init_from_rnn_weights` with the parent RNN's weights sets these
+    to reproduce ``LayerNorm`` exactly at initialization; the aux loss then keeps
+    them LayerNorm-like as the RNN weights drift during training.
     """
 
     def __init__(
@@ -43,38 +52,32 @@ class ParametrizedLayerNorm(nn.Module):
         super().__init__()
         self.eps = eps
         feat_dim = input_size + hidden_size
-        stats_hidden_size = stats_hidden_size or feat_dim
-        self.mean_net = nn.Sequential(
-            nn.Linear(feat_dim, stats_hidden_size),
-            nn.ReLU(),
-            nn.Linear(stats_hidden_size, 1),
-        )
+        # Number of divisive units. Default n_h matches the notebook's recurrent
+        # example; ``W_eff`` is rank <= n_h - 1 so the last singular value is ~0.
+        stats_hidden_size = stats_hidden_size or hidden_size
+        self.mean_net = nn.Linear(feat_dim, 1)
         self.var_net = nn.Sequential(
             nn.Linear(feat_dim, stats_hidden_size),
-            nn.ReLU(),
+            Square(),
             nn.Linear(stats_hidden_size, 1),
         )
-        for net in (self.mean_net, self.var_net):
-            for layer in net:
-                if isinstance(layer, nn.Linear):
-                    self._lognormal_weight_(layer.weight)
 
-    @staticmethod
-    def _lognormal_weight_(
-        weight: torch.Tensor, numerator: float = 2.0, k: float = 1.0
+    def init_from_rnn_weights(
+        self,
+        W_XE: torch.Tensor,
+        W_EE: torch.Tensor,
+        bias: torch.Tensor | None = None,
     ) -> None:
-        """Lognormal init matching ``inhibition.init``'s excitatory scheme.
+        """Init the stats predictors from the parent RNN's weights.
 
-        Fan-in scaling only: ``excitatory_weight``'s ``(ne - 1)`` factor divides by
-        zero on the single-unit output layers here. Marks ``clamp=True`` so callers
-        keep these weights non-negative after optimizer steps.
+        Makes ``(pre_act - pred_mean) / sqrt(pred_var)`` equal ``LayerNorm(pre_act)``
+        at initialization (see the notebook's divisive-recurrent derivation).
         """
-        _, n_in = weight.shape
-        target_std = (numerator / n_in) ** 0.5
-        mu, sigma = calc_ln_mu_sigma(target_std * k, target_std**2)
-        with torch.no_grad():
-            weight.log_normal_(mean=float(mu), std=float(sigma))
-        weight.clamp = False
+        n_div = self.var_net[0].out_features
+        init.parametrized_ln_mean_weight(self.mean_net, W_XE, W_EE, bias)
+        init.parametrized_ln_var_weight(
+            self.var_net[0], self.var_net[2], W_XE, W_EE, bias, n_div=n_div
+        )
 
     def _clamp_weights(self) -> None:
         with torch.no_grad():
@@ -87,7 +90,9 @@ class ParametrizedLayerNorm(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         feat = torch.cat([x_t, h_prev], dim=-1)
         pred_mean = self.mean_net(feat)
-        pred_var = F.softplus(self.var_net(feat)) + self.eps
+        # var_net is Linear -> square -> (non-negative) average, so its output is
+        # already >= 0; no softplus needed (softplus would break the exact match).
+        pred_var = self.var_net(feat) + self.eps
         return pred_mean, pred_var
 
     def aux_loss(

@@ -65,6 +65,11 @@ class SimpleEERNN(nn.Module):
         init.excitatory_weight(self.W_XE)
         init.excitatory_weight(self.W_EE)
 
+        # Init the parametrized LayerNorm's stats predictors from the (now set)
+        # RNN weights so it reproduces LayerNorm exactly at initialization.
+        if self.use_parametrized_layer_norm and self.layer_norm is not None:
+            self.layer_norm.init_from_rnn_weights(self.W_XE, self.W_EE, self.bias)
+
     def _activation(self, x: torch.Tensor) -> torch.Tensor:
         if self.nonlinearity is None:
             return x

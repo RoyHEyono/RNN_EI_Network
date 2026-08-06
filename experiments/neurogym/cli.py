@@ -42,7 +42,7 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--param-ln-pretrain-steps",
         type=int,
-        default=2000,
+        default=500,
         help="Steps calibrating ParametrizedLayerNorm on fresh dataset batches before joint training",
     )
     p.add_argument(
