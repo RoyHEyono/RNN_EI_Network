@@ -46,10 +46,28 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
         help="Steps calibrating ParametrizedLayerNorm on fresh dataset batches before joint training",
     )
     p.add_argument(
-        "--lr-norm",
+        "--lr-norm-mean",
         type=float,
-        default=1e-2,
-        help="Adam lr for ParametrizedLayerNorm's mean_net/var_net (pretraining and joint training)",
+        default=0,
+        metavar="LR",
+        dest="lr_norm_mean",
+        help="SGD lr for ParametrizedLayerNorm.mean_net (default: 1e-2)",
+    )
+    p.add_argument(
+        "--lr-norm-var0",
+        type=float,
+        default=0,
+        metavar="LR",
+        dest="lr_norm_var0",
+        help="SGD lr for ParametrizedLayerNorm.var_net[0] Linear (default: 1e-2)",
+    )
+    p.add_argument(
+        "--lr-norm-var2",
+        type=float,
+        default=0,
+        metavar="LR",
+        dest="lr_norm_var2",
+        help="SGD lr for ParametrizedLayerNorm.var_net[2] Linear (default: 1e-2)",
     )
     p.add_argument(
         "--aux-loss-weight",

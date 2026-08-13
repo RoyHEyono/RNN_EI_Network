@@ -19,6 +19,7 @@ from inhibition.model import (
     NeurogymVanillaLSTMNet,
     NeurogymVanillaRNNNet,
     inorm_param_groups,
+    param_ln_param_groups,
 )
 
 
@@ -75,11 +76,8 @@ def main() -> None:
 
     criterion = nn.CrossEntropyLoss()
 
-    norm_params = (
-        list(model.rnn.layer_norm.parameters())
-        if (args.arch == "ei" and args.param_layer_norm)
-        else []
-    )
+    use_param_ln = args.arch == "ei" and args.param_layer_norm
+    norm_params = list(model.rnn.layer_norm.parameters()) if use_param_ln else []
 
     lr_ie = args.lr if args.lr_ie is None else args.lr_ie
     lr_ei = args.lr if args.lr_ei is None else args.lr_ei
@@ -103,7 +101,18 @@ def main() -> None:
                 momentum=args.momentum,
             )
 
-    optimizer_norm = optim.Adam(norm_params, lr=args.lr_norm) if norm_params else None
+    if use_param_ln:
+        optimizer_norm = optim.SGD(
+            param_ln_param_groups(
+                model.rnn.layer_norm,
+                args.lr_norm_mean,
+                args.lr_norm_var0,
+                args.lr_norm_var2,
+            ),
+            momentum=args.momentum,
+        )
+    else:
+        optimizer_norm = None
 
     if args.wandb:
         run_name = os.environ.get("WANDB_RUN_NAME")

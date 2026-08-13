@@ -135,6 +135,7 @@ def train_supervised_steps(
     # Best (lowest) losses within the current log window; reset every log_interval
     # so they reflect recent training rather than a stale global minimum.
     best_loss = float("inf")
+    best_task_loss = float("inf")
     best_aux_loss = float("inf")
     best_trial_acc = float("-inf")
     trial_accuracies: list[float] = []
@@ -148,10 +149,11 @@ def train_supervised_steps(
             optimizer_norm.zero_grad(set_to_none=True)
         logits = model(inputs)
         b, t, c = logits.shape
-        loss = criterion(logits.reshape(b * t, c), labels.reshape(b * t))
+        task_loss = criterion(logits.reshape(b * t, c), labels.reshape(b * t))
+        loss = task_loss
         aux_loss = getattr(model, "last_aux_loss", None)
         if aux_loss is not None:
-            loss = loss + aux_loss_weight * aux_loss
+            loss = task_loss + aux_loss_weight * aux_loss
         loss.backward()
         optimizer.step()
         if optimizer_norm is not None:
@@ -164,10 +166,13 @@ def train_supervised_steps(
             best_trial_acc = max(best_trial_acc, trial_acc)
 
         best_loss = min(best_loss, float(loss.item()))
+        best_task_loss = min(best_task_loss, float(task_loss.item()))
         if aux_loss is not None:
             best_aux_loss = min(best_aux_loss, float(aux_loss.item()))
         if getattr(args, "wandb", False):
-            payload: dict[str, Any] = {"train/best_loss": best_loss}
+            payload: dict[str, Any] = {
+                "train/best_loss": best_task_loss,
+            }
             if aux_loss is not None:
                 payload["train/best_aux_loss"] = best_aux_loss
             if trial_acc is not None:
@@ -176,7 +181,10 @@ def train_supervised_steps(
             wandb.log(payload, step=i + 1)
 
         if (i + 1) % args.log_interval == 0:
-            line = f"step {i + 1}  best_loss_last_{args.log_interval}: {best_loss:.5f}"
+            line = (
+                f"step {i + 1}  best_loss_last_{args.log_interval}: {best_loss:.5f}"
+                f"  best_task_loss_last_{args.log_interval}: {best_task_loss:.5f}"
+            )
             if aux_loss is not None:
                 line += f"  best_aux_loss_last_{args.log_interval}: {best_aux_loss:.5f}"
             if trial_acc is not None:
@@ -185,5 +193,6 @@ def train_supervised_steps(
                 )
             print(line)
             best_loss = float("inf")
+            best_task_loss = float("inf")
             best_aux_loss = float("inf")
             best_trial_acc = float("-inf")
