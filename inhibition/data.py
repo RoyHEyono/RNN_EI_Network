@@ -16,6 +16,21 @@ class RandomAdjustBrightness:
         return torch.clamp(x, 0, 1)
 
 
+class RandomAdjustContrast:
+    def __init__(self, mode: float):
+        # {0, 0.3, 0.6, 0.9}
+        self.gamma = mode
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        if self.gamma == 0:
+            return x
+
+        c = 1.0 + (torch.rand(1).item() * 2.0 - 1.0) * self.gamma
+        mu_img = x.mean(dim=(-2, -1), keepdim=True)
+        x_out = (x - mu_img) * c + mu_img
+        return torch.clamp(x_out, 0.0, 1.0)
+
+
 def default_mnist_transform():
     return transforms.Compose(
         [
@@ -62,11 +77,12 @@ def fashion_mnist_normalize():
     return transforms.Normalize((0.2860,), (0.3530,))
 
 
-def fashion_mnist_transform(brightness_factor: float):
-    """ToTensor, random brightness jitter, then normalize (train and eval)."""
+def fashion_mnist_transform(brightness_factor: float, contrast_factor: float = 0.0):
+    """ToTensor, contrast then brightness jitter, then normalize (train and eval)."""
     return transforms.Compose(
         [
             transforms.ToTensor(),
+            RandomAdjustContrast(contrast_factor),
             RandomAdjustBrightness(brightness_factor),
             fashion_mnist_normalize(),
         ]
@@ -80,10 +96,11 @@ def make_fashion_mnist_dataloaders(
     test_batch_size: int,
     use_accel: bool,
     brightness_factor: float = 0.1,
+    contrast_factor: float = 0.0,
     download: bool = True,
 ):
     data_dir = Path(data_dir)
-    transform = fashion_mnist_transform(brightness_factor)
+    transform = fashion_mnist_transform(brightness_factor, contrast_factor)
     train_set = datasets.FashionMNIST(
         str(data_dir), train=True, download=download, transform=transform
     )

@@ -17,6 +17,7 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--save-model", action="store_true", help="For Saving the current Model")
     parser.add_argument("--data-dir", type=str, default="./data", help="directory for MNIST files (default: ../data)")
     parser.add_argument("--brightness-factor", type=float, default=0, dest="brightness_factor", help="random brightness jitter factor for Fashion-MNIST inputs")
+    parser.add_argument("--contrast-factor", type=float, default=0, dest="contrast_factor", help="random contrast jitter factor for Fashion-MNIST inputs")
     parser.add_argument("--wandb", action="store_false", help="enable Weights & Biases (wandb.watch on the model)")
     parser.add_argument("--wandb-project", type=str, default="mnist-ei", metavar="NAME", help="W&B project name when --wandb is set (default: mnist-ei)")
     return parser

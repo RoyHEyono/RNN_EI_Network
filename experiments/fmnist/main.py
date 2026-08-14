@@ -27,6 +27,7 @@ def main():
         test_batch_size=args.test_batch_size,
         use_accel=use_accel,
         brightness_factor=args.brightness_factor,
+        contrast_factor=args.contrast_factor,
     )
     # model = DeepNet().to(device)
     model = RNNNet().to(device)
