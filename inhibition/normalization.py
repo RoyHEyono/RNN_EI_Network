@@ -31,6 +31,87 @@ class layer_norm_linear_ste(nn.Module):
         return ln_out + (linear_out - ln_out).detach()
 
 
+class LayerNormalizeFunctionFA(torch.autograd.Function):
+    """Identity forward with configurable LayerNorm-like backward ablations."""
+
+    @staticmethod
+    def forward(ctx, x, var, weights, no_backward, ln_feedback, module):
+        epsilon = 1e-5
+        ctx.no_backward = no_backward
+        ctx.ln_feedback = ln_feedback
+        ctx.module = module
+        mean = x.mean(dim=-1, keepdim=True)
+        x_centered = x - mean
+        actual_var = x.var(dim=-1, keepdim=True, unbiased=False)
+        ctx.actual_var = torch.sqrt(actual_var + epsilon)
+        ctx.save_for_backward(x_centered, var, weights.to(x.device))
+        return x
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        if ctx.no_backward:
+            return grad_output, None, None, None, None, None
+
+        x_centered, var, weights = ctx.saved_tensors
+        _ = var  # kept for API compatibility with call sites
+        D = x_centered.shape[-1]
+        grad_input = grad_output
+
+        if ctx.ln_feedback == "full":
+            grad_mean = grad_output.mean(dim=-1, keepdim=True)
+            x_hat = x_centered / ctx.actual_var
+            dot = (grad_output * x_hat).mean(dim=-1, keepdim=True)
+            grad_input = (grad_output - grad_mean - x_hat * dot) / ctx.actual_var
+
+        elif ctx.ln_feedback == "center":
+            grad_mean = grad_output.mean(dim=-1, keepdim=True)
+            grad_input = grad_output - grad_mean
+
+        elif ctx.ln_feedback == "fa_center":
+            if ctx.module is not None:
+                ctx.module.grad_norm_delta = grad_output.detach().clone()
+            grad_mean = (weights * grad_output).sum(dim=-1, keepdim=True)
+            grad_input = grad_output - grad_mean
+
+        elif ctx.ln_feedback == "scale":
+            grad_input = grad_output / ctx.actual_var
+
+        elif ctx.ln_feedback == "decorrelate":
+            dot = (grad_output * x_centered).sum(dim=-1, keepdim=True)
+            grad_input = grad_output - x_centered * dot / D
+
+        return grad_input, None, None, None, None, None
+
+
+class LayerNormFeedbackAblation(nn.Module):
+    """Configurable backward-only LayerNorm-style gradient transform.
+
+    Forward returns identity on ``x``. Backward can emulate or ablate pieces of
+    the LayerNorm Jacobian through ``ln_feedback``:
+    ``full``, ``center``, ``fa_center``, ``scale``, ``decorrelate``.
+    """
+
+    def __init__(self, ln_feedback="full", no_backward=False):
+        super().__init__()
+        self.ln_feedback = ln_feedback
+        self.no_backward = no_backward
+        self.grad_norm_delta = None
+
+    def forward(self, x, var=None, weights=None):
+        if var is None:
+            var = x.var(dim=-1, keepdim=True, unbiased=False)
+        if weights is None:
+            weights = torch.ones_like(x) / x.shape[-1]
+        return LayerNormalizeFunctionFA.apply(
+            x,
+            var,
+            weights,
+            self.no_backward,
+            self.ln_feedback,
+            self,
+        )
+
+
 class ParametrizedLayerNorm(nn.Module):
     """Predict scalar mean/variance from ``(x_t, h_prev)`` and normalize ``pre_act``.
 
