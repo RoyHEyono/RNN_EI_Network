@@ -120,3 +120,24 @@ class EiDenseLayer(nn.Module):
         z = e_drive - sub_inh
 
         return z
+
+
+class EDenseLayer(nn.Module):
+    """Pure excitatory dense layer without inhibitory pathways."""
+
+    def __init__(self, in_features, out_features, eps=1e-5):
+        super().__init__()
+        self.eps = eps
+        self.W_EE = nn.Parameter(torch.randn(out_features, in_features))
+        self.bias = nn.Parameter(torch.zeros(1, out_features))
+        self.bias.clamp = True
+
+        init.excitatory_weight(self.W_EE)
+
+    def forward(self, h_prev):
+        with torch.no_grad():
+            for p in self.parameters():
+                if getattr(p, "clamp", False):
+                    p.clamp_(min=0)
+
+        return F.linear(h_prev, self.W_EE) + self.bias

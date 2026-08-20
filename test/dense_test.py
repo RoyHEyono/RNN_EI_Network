@@ -1,7 +1,7 @@
 import unittest
 import torch
 import numpy as np
-from inhibition.dense import INormLayer
+from inhibition.dense import EDenseLayer, INormLayer
 
 class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
     
@@ -125,3 +125,28 @@ class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
         self.assertIsNone(self.layer.U_EI.grad)
         self.assertIsNone(self.layer.W_IE.grad)
         self.assertIsNone(self.layer.U_IE.grad)
+
+
+class TestEDenseLayer(unittest.TestCase):
+    def setUp(self):
+        torch.manual_seed(42)
+        self.n_input = 32
+        self.ne = 16
+        self.batch_size = 4
+        self.layer = EDenseLayer(self.n_input, self.ne)
+        self.x = torch.randn(self.batch_size, self.n_input)
+
+    def test_forward_output_shape(self):
+        output = self.layer(self.x)
+        self.assertEqual(output.shape, (self.batch_size, self.ne))
+
+    def test_forward_matches_linear_projection(self):
+        output = self.layer(self.x)
+        expected = torch.matmul(self.x, self.layer.W_EE.T) + self.layer.bias
+        self.assertTrue(torch.equal(output, expected))
+
+    def test_has_no_inhibitory_parameters(self):
+        self.assertFalse(hasattr(self.layer, "W_IE"))
+        self.assertFalse(hasattr(self.layer, "W_EI"))
+        self.assertFalse(hasattr(self.layer, "U_IE"))
+        self.assertFalse(hasattr(self.layer, "U_EI"))
