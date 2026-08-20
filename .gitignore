@@ -13,5 +13,12 @@ __pycache__
 *.lock
 wandb/
 experiments/**/data/
+/data/
 experiments/**/batch_run/sbatch_err/
 experiments/**/batch_run/sbatch_out/
+
+# Figure generation artifacts
+experiments/dense_fmnist/figures/_cache/
+figures_out/
+sbatch_out/
+sbatch_err/

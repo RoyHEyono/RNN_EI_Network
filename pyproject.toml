@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest"]
 neurogym = ["neurogym"]
+figures = ["matplotlib>=3.5", "scipy>=1.7"]
 
 [tool.setuptools.packages.find]
 where = ["."]

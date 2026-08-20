@@ -225,3 +225,117 @@ class ParametrizedLayerNorm(nn.Module):
         ln_true = F.layer_norm(pre_act, pre_act.shape[-1:], eps=self.eps)
         out = ln_true + (normalized - ln_true).detach()
         return out, aux
+
+
+class MeanNormalizeFunction(torch.autograd.Function):
+    """Subtract the feature mean, with an optional backward (or forward) bypass."""
+
+    @staticmethod
+    def forward(ctx, x, no_backward, no_forward=False):
+        ctx.no_backward = no_backward
+        if no_forward:
+            return x
+        return x - x.mean(dim=-1, keepdim=True)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        if ctx.no_backward:
+            return grad_output, None, None
+        return grad_output - grad_output.mean(dim=-1, keepdim=True), None, None
+
+
+class MeanNormalize(nn.Module):
+    """``x - mean(x)`` over the feature dim.
+
+    ``no_backward`` routes the gradient around the operation (the "detached
+    norm" / LN-minus condition); ``no_forward`` makes the forward an identity so
+    only the backward transform is applied.
+    """
+
+    def __init__(self, no_backward: bool = False, no_forward: bool = False):
+        super().__init__()
+        self.no_backward = no_backward
+        self.no_forward = no_forward
+
+    def forward(self, x):
+        return MeanNormalizeFunction.apply(x, self.no_backward, self.no_forward)
+
+
+class DivisiveNormalizeFunction(torch.autograd.Function):
+    """Divide by the feature std (no centering), with backward/forward bypasses."""
+
+    @staticmethod
+    def forward(ctx, x, no_backward, no_forward=False):
+        eps = 1e-5
+        sigma = torch.sqrt(x.var(dim=-1, keepdim=True, unbiased=False) + eps)
+        ctx.save_for_backward(x, sigma)
+        ctx.no_backward = no_backward
+        if no_forward:
+            return x
+        return x / sigma
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        if ctx.no_backward:
+            return grad_output, None, None
+        x, sigma = ctx.saved_tensors
+        n = x.shape[-1]
+        mu = x.mean(dim=-1, keepdim=True)
+        dot = (grad_output * x).sum(dim=-1, keepdim=True)
+        grad_input = grad_output / sigma - (x - mu) * dot / (sigma**3 * n)
+        return grad_input, None, None
+
+
+class DivisiveNormalize(nn.Module):
+    """``x / sqrt(var(x) + eps)`` over the feature dim. See :class:`MeanNormalize`."""
+
+    def __init__(self, no_backward: bool = False, no_forward: bool = False):
+        super().__init__()
+        self.no_backward = no_backward
+        self.no_forward = no_forward
+
+    def forward(self, x):
+        return DivisiveNormalizeFunction.apply(x, self.no_backward, self.no_forward)
+
+
+class LayerNormalizeFunction(torch.autograd.Function):
+    """Full LayerNorm (no affine), with backward/forward bypasses."""
+
+    @staticmethod
+    def forward(ctx, x, no_backward, no_forward=False):
+        eps = 1e-5
+        mu = x.mean(dim=-1, keepdim=True)
+        sigma = torch.sqrt(x.var(dim=-1, keepdim=True, unbiased=False) + eps)
+        ctx.save_for_backward(x, mu, sigma)
+        ctx.no_backward = no_backward
+        if no_forward:
+            return x
+        return (x - mu) / sigma
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        if ctx.no_backward:
+            return grad_output, None, None
+        x, mu, sigma = ctx.saved_tensors
+        y = (x - mu) / sigma
+        d = x.shape[-1]
+        grad_mean = grad_output.mean(dim=-1, keepdim=True)
+        dot = (grad_output * y).sum(dim=-1, keepdim=True)
+        grad_input = (grad_output - grad_mean - y * dot / d) / sigma
+        return grad_input, None, None
+
+
+class LayerNormalizeCustom(nn.Module):
+    """LayerNorm whose backward can be detached independently of its forward.
+
+    ``no_backward=False`` is the paper's LN+ (normalization shapes both activity
+    and error signals); ``no_backward=True`` is LN- (forward normalization only).
+    """
+
+    def __init__(self, no_backward: bool = False, no_forward: bool = False):
+        super().__init__()
+        self.no_backward = no_backward
+        self.no_forward = no_forward
+
+    def forward(self, x):
+        return LayerNormalizeFunction.apply(x, self.no_backward, self.no_forward)

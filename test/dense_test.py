@@ -7,6 +7,7 @@ class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
     
     def setUp(self):
         torch.manual_seed(42)  # Set seed for reproducibility
+        np.random.seed(42)     # inhibition.init draws from numpy's global RNG
         self.n_input = 784
         self.ne = 500
         self.batch_size = 4
@@ -42,9 +43,11 @@ class TestEiDenseLayerDecoupledHomeostasis(unittest.TestCase):
         var = output.var(dim=-1, unbiased=False)
         mu = output.mean(dim=-1)
 
-        self.assertTrue(torch.allclose(var, torch.ones_like(var), atol=1e-6),
+        # 1e-5 is float32 accumulation noise over 784 inputs x 500 units; the
+        # initialization is exact in exact arithmetic.
+        self.assertTrue(torch.allclose(var, torch.ones_like(var), atol=1e-5),
                         msg=f"Expected variance=1, got {var}")
-        self.assertTrue(torch.allclose(mu, torch.zeros_like(mu), atol=1e-6),
+        self.assertTrue(torch.allclose(mu, torch.zeros_like(mu), atol=1e-5),
                         msg=f"Expected mu=0, got {mu}")
 
     def test_forward_against_layernorm_at_init(self):
