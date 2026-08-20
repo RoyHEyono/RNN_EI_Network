@@ -18,14 +18,14 @@ class RandomAdjustBrightness:
 
 class RandomAdjustContrast:
     def __init__(self, mode: float):
-        # {0, 0.3, 0.6, 0.9}
+        # c ~ Unif[1 - gamma, 1 + gamma], then clamped to c >= 0; gamma=0 is identity
         self.gamma = mode
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         if self.gamma == 0:
             return x
 
-        c = 1.0 + (torch.rand(1).item() * 2.0 - 1.0) * self.gamma
+        c = max(0.0, 1.0 + (torch.rand(1).item() * 2.0 - 1.0) * self.gamma)
         mu_img = x.mean(dim=(-2, -1), keepdim=True)
         x_out = (x - mu_img) * c + mu_img
         return torch.clamp(x_out, 0.0, 1.0)
