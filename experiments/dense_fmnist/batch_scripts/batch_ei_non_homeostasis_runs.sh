@@ -1,19 +1,26 @@
 #!/usr/bin/env bash
 #SBATCH --array=0-31%2      # 4 luminosities x 2 normtype x 2 detach x 2 architecture
 #SBATCH --partition=long
-#SBATCH --gres=gpu:rtx8000:1
+#SBATCH --exclude=cn-c008
+#SBATCH --gres=gpu:1
+#SBATCH --constraint="turing|ampere|lovelace|hopper"  # skip volta (V100, CC 7.0): unsupported by our torch build
 #SBATCH --mem=16GB
-#SBATCH --time=24:00:00
+#SBATCH --time=00:30:00
 #SBATCH --cpus-per-gpu=4
 #SBATCH --output=sbatch_out/grid_ei_%A_%a.out
 #SBATCH --error=sbatch_err/grid_ei_%A_%a.err
 #SBATCH --job-name=grid_ei
 #
 # Figure 2: LN vs no-LN in E/I networks, and E/I vs E-only under LN.
-# Each grid point fans out into 30 random hyperparameter configurations.
+# Each grid point fans out into 5 random hyperparameter configurations.
 set -euo pipefail
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_common.sh"
+# sbatch runs a spooled copy; fall back to the submit directory for siblings.
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || true
+if [[ ! -f "${_SCRIPT_DIR}/_common.sh" ]]; then
+  _SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$PWD}"
+fi
+source "${_SCRIPT_DIR}/_common.sh"
 
 brightness_factors=(0 0.25 0.5 0.75)
 layer_norms=(0 1)
@@ -35,4 +42,4 @@ export NORMTYPE_DETACH=$detach
 export EXCITATORY_ONLY=$eonly
 export LAMBDA_HOMEOS=1        # inert: no homeostatic loss in this arm
 
-sbatch --export=ALL "$SCRIPT_DIR/run_ei_network.sh"
+submit_inner_array "$SCRIPT_DIR/run_ei_network.sh"

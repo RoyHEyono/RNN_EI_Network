@@ -24,10 +24,26 @@ EPOCHS="${EPOCHS:-50}"
 # Pull one random hyperparameter config out of the JSON list by array index.
 read_random_config() {
   local idx=$1
-  "${PYTHON_BIN:-python3}" - "$RANDOM_CONFIGS_FILE" "$idx" <<'PY'
+  uv run --directory "$REPO_ROOT" python - "$RANDOM_CONFIGS_FILE" "$idx" <<'PY'
 import json, sys
 configs = json.load(open(sys.argv[1]))
 c = configs[int(sys.argv[2]) % len(configs)]
 print(c["lr"], c["lr_wei"], c["lr_wix"], c["hidden_layer_width"])
 PY
+}
+
+# Submit an inner array job without inheriting this job's SLURM array identity.
+# Plain ``sbatch --export=ALL`` re-exports SLURM_ARRAY_TASK_ID (the outer grid
+# index), which can corrupt nested ``#SBATCH --array=...`` ranges.
+submit_inner_array() {
+  local script=$1
+  env -u SLURM_ARRAY_TASK_ID \
+      -u SLURM_ARRAY_JOB_ID \
+      -u SLURM_ARRAY_TASK_COUNT \
+      -u SLURM_ARRAY_TASK_MAX \
+      -u SLURM_ARRAY_TASK_MIN \
+      -u SLURM_ARRAY_TASK_STEP \
+      -u SLURM_JOB_ID \
+      -u SLURM_JOBID \
+      sbatch --export=ALL "$script"
 }

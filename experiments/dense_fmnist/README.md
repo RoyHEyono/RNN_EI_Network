@@ -78,22 +78,24 @@ Budget: ~2760 runs at roughly 20 min each on an rtx8000.
 
 ## Figures
 
-Runs are read back through the wandb public API. Summaries are downloaded once and cached
-under `figures/_cache/`, so re-plotting is offline.
+Runs are read back directly from the wandb public API from within each notebook.
 
-```bash
-python -m experiments.dense_fmnist.figures.make_figures \
-  --entity your_entity --project Luminosity_LNHomeostasis --all --out figures_out
-python -m experiments.dense_fmnist.figures.make_stimuli --epsilon 0.75 --out figures_out
-```
+Figure generation is notebook-only. Use the per-figure notebooks in:
 
-Produces `figure2a`, `figure2b`, `figure3b`, `figure4a`, `figure4b`, `figure5b`, `figure5c`,
-`figure6a`, `figure6b`, `figure7b` (and `figure1b`). Pass `--refresh` to re-query wandb,
-`--figures 4 5` for a subset, `--format png` for a quick look. Figures 1, and the schematic
+- `experiments/dense_fmnist/analysis/figure1b_stimulus.ipynb`
+- `experiments/dense_fmnist/analysis/figure2.ipynb`
+- `experiments/dense_fmnist/analysis/figure3.ipynb`
+- `experiments/dense_fmnist/analysis/figure4.ipynb`
+- `experiments/dense_fmnist/analysis/figure5.ipynb`
+- `experiments/dense_fmnist/analysis/figure6.ipynb`
+- `experiments/dense_fmnist/analysis/figure7.ipynb`
+
+Each notebook exposes selection, pairing, and plotting steps, and writes outputs to
+`experiments/dense_fmnist/figures_out_notebooks/` by default. Figures 1, and the schematic
 panels of 3, 5, 6 and 7, are hand-drawn and not generated here.
 
-Drop an `Arial.ttf` into `figures/fonts/` to match the paper's typography; otherwise the
-default sans-serif is used.
+If you want paper-like typography, set your preferred sans-serif font directly in each notebook's
+styling cell; otherwise the default sans-serif is used.
 
 ## Differences from the original implementation
 
