@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array=0-19%2      # 4 luminosities x 5 lambda values
+#SBATCH --array=0-19     # 4 luminosities x 5 lambda values
 #SBATCH --partition=long
 #SBATCH --exclude=cn-c008
 #SBATCH --gres=gpu:1
@@ -31,6 +31,7 @@ lam=${lambdas[$(( (i / 4) % 5 ))]}
 
 echo "grid=$i brightness=$bf lambda=$lam"
 
+export DATASET="${DATASET:-fashionmnist}"
 export BRIGHTNESS_FACTOR=$bf
 export NORMTYPE_DETACH=1
 export LN_FEEDBACK="full"

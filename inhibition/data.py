@@ -27,15 +27,25 @@ class RandomAdjustBrightness:
 
 
 class RandomAdjustContrast:
-    def __init__(self, mode: float):
-        # c ~ Unif[1 - gamma, 1 + gamma], then clamped to c >= 0; gamma=0 is identity
+    """Contrast scale around the per-image mean: ``c ~ Unif[1-γ, 1+γ]`` (clamped ≥ 0).
+
+    ``fixed=True`` applies ``c = 1 + gamma`` instead of a random draw, for
+    evaluating at a single known contrast (mirrors :class:`RandomAdjustBrightness`).
+    ``gamma=0`` is identity.
+    """
+
+    def __init__(self, mode: float, fixed: bool = False):
         self.gamma = mode
+        self.fixed = fixed
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        if self.gamma == 0:
+        if self.gamma == 0 and not self.fixed:
             return x
 
-        c = max(0.0, 1.0 + (torch.rand(1).item() * 2.0 - 1.0) * self.gamma)
+        if self.fixed:
+            c = max(0.0, 1.0 + self.gamma)
+        else:
+            c = max(0.0, 1.0 + (torch.rand(1).item() * 2.0 - 1.0) * self.gamma)
         mu_img = x.mean(dim=(-2, -1), keepdim=True)
         x_out = (x - mu_img) * c + mu_img
         return torch.clamp(x_out, 0.0, 1.0)
@@ -135,17 +145,31 @@ def make_fashion_mnist_dataloaders(
     return train_loader, test_loader
 
 
-def dense_fashion_mnist_transform(brightness_factor: float, fixed: bool = False):
-    """Raw ``[0, 1]`` pixels plus the luminance shift, as in the paper's Methods.
+def dense_fashion_mnist_transform(
+    epsilon: float,
+    fixed: bool = False,
+    *,
+    jitter: str = "brightness",
+):
+    """Raw ``[0, 1]`` pixels plus luminance or contrast jitter for dense I-Norm runs.
 
     Deliberately omits the mean/std ``Normalize`` used by
     :func:`fashion_mnist_transform`: the paper defines epsilon relative to the
     ``[0, 1]`` pixel range, so re-standardizing afterwards would rescale it.
+
+    ``jitter`` is ``"brightness"`` (default, paper luminance shift) or
+    ``"contrast"`` (:class:`RandomAdjustContrast` with the same epsilon).
     """
+    if jitter == "brightness":
+        adjust = RandomAdjustBrightness(epsilon, fixed=fixed)
+    elif jitter == "contrast":
+        adjust = RandomAdjustContrast(epsilon, fixed=fixed)
+    else:
+        raise ValueError(f"jitter must be 'brightness' or 'contrast', got {jitter!r}")
     return transforms.Compose(
         [
             transforms.ToTensor(),
-            RandomAdjustBrightness(brightness_factor, fixed=fixed),
+            adjust,
         ]
     )
 
@@ -160,17 +184,36 @@ def make_dense_fashion_mnist_dataloaders(
     brightness_factor_eval: float = 0.0,
     download: bool = True,
     num_workers: int = 2,
+    dataset: str = "fashionmnist",
 ):
     """Fashion-MNIST loaders for the dense I-Norm experiments.
 
-    Train and test see the same random luminance jitter unless
+    ``dataset``:
+      * ``fashionmnist`` — random luminance jitter (paper default)
+      * ``fashionmnist_contrast`` — random contrast jitter with the same epsilon
+
+    Train and test see the same random jitter unless
     ``brightness_factor_eval`` is non-zero, in which case the test set is shifted
-    by that fixed amount instead.
+    by that fixed amount instead. The CLI still names this flag
+    ``brightness_factor`` / ``brightness_factor_eval`` for both variants.
     """
+    if dataset == "fashionmnist":
+        jitter = "brightness"
+    elif dataset == "fashionmnist_contrast":
+        jitter = "contrast"
+    else:
+        raise ValueError(
+            f"dataset must be 'fashionmnist' or 'fashionmnist_contrast', got {dataset!r}"
+        )
+
     data_dir = Path(data_dir)
-    train_transform = dense_fashion_mnist_transform(brightness_factor)
+    train_transform = dense_fashion_mnist_transform(
+        brightness_factor, jitter=jitter
+    )
     if brightness_factor_eval:
-        test_transform = dense_fashion_mnist_transform(brightness_factor_eval, fixed=True)
+        test_transform = dense_fashion_mnist_transform(
+            brightness_factor_eval, fixed=True, jitter=jitter
+        )
     else:
         test_transform = train_transform
 

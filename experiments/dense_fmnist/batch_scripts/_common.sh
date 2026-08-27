@@ -20,6 +20,8 @@ WANDB_PROJECT="${WANDB_PROJECT:-Luminosity_LNHomeostasis}"
 WANDB_ENTITY="${WANDB_ENTITY:-}"
 DATA_DIR="${DATA_DIR:-$REPO_ROOT/data}"
 EPOCHS="${EPOCHS:-50}"
+# fashionmnist (luminance) or fashionmnist_contrast; override at sbatch time.
+DATASET="${DATASET:-fashionmnist}"
 
 # Pull one random hyperparameter config out of the JSON list by array index.
 read_random_config() {

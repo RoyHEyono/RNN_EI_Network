@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array=0-3%2       # 4 luminosities
+#SBATCH --array=0-3       # 4 luminosities
 #SBATCH --partition=long
 #SBATCH --exclude=cn-c008
 #SBATCH --gres=gpu:1
@@ -28,6 +28,7 @@ bf=${brightness_factors[${SLURM_ARRAY_TASK_ID}]}
 
 echo "grid=${SLURM_ARRAY_TASK_ID} brightness=$bf shunting=0"
 
+export DATASET="${DATASET:-fashionmnist}"
 export BRIGHTNESS_FACTOR=$bf
 export NORMTYPE_DETACH=1
 export LN_FEEDBACK="full"

@@ -50,6 +50,7 @@ def main():
         use_accel=device.type != "cpu",
         brightness_factor=args.brightness_factor,
         brightness_factor_eval=args.brightness_factor_eval,
+        dataset=args.dataset,
     )
 
     if args.use_wandb:

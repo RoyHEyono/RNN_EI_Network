@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array=0-4                 # 5 random hyperparameter configurations
+#SBATCH --array=0-29                 # 30 random hyperparameter configurations
 #SBATCH --partition=long
 #SBATCH --exclude=cn-c008
 #SBATCH --gres=gpu:1
@@ -23,7 +23,7 @@ read -r lr lr_wei lr_wix width < <(read_random_config "${SLURM_ARRAY_TASK_ID:-0}
 
 cd "$REPO_ROOT"
 uv run python -m experiments.dense_fmnist.train_ei_network \
-  --train.dataset='fashionmnist' \
+  --train.dataset="${DATASET:-fashionmnist}" \
   --train.epochs="$EPOCHS" \
   --train.batch_size=32 \
   --data.data_dir="$DATA_DIR" \

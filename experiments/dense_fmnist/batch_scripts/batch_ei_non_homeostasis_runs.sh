@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array=0-31%2      # 4 luminosities x 2 normtype x 2 detach x 2 architecture
+#SBATCH --array=0-31     # 4 luminosities x 2 normtype x 2 detach x 2 architecture
 #SBATCH --partition=long
 #SBATCH --exclude=cn-c008
 #SBATCH --gres=gpu:1
@@ -35,6 +35,7 @@ eonly=${excitatory_only[$(( (i / 16) % 2 ))]}
 
 echo "grid=$i brightness=$bf layer_norm=$ln normtype_detach=$detach excitatory_only=$eonly"
 
+export DATASET="${DATASET:-fashionmnist}"
 export BRIGHTNESS_FACTOR=$bf
 export LAYER_NORM=$ln
 export NORMTYPE=0

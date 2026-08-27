@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array=0-31%2      # 4 luminosities x 2 detach x 4 feedback rules
+#SBATCH --array=0-31      # 4 luminosities x 2 detach x 4 feedback rules
 #SBATCH --partition=long
 #SBATCH --exclude=cn-c008
 #SBATCH --gres=gpu:1
@@ -34,6 +34,7 @@ fb=${ln_feedbacks[$(( (i / 8) % 4 ))]}
 
 echo "grid=$i brightness=$bf normtype_detach=$detach ln_feedback=$fb"
 
+export DATASET="${DATASET:-fashionmnist}"
 export BRIGHTNESS_FACTOR=$bf
 export NORMTYPE_DETACH=$detach
 export LN_FEEDBACK=$fb

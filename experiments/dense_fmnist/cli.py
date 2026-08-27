@@ -20,7 +20,15 @@ def build_parser(*, homeostasis_defaults: bool) -> argparse.ArgumentParser:
     )
 
     train = p.add_argument_group("train")
-    train.add_argument("--train.dataset", dest="dataset", type=str, default="fashionmnist")
+    train.add_argument(
+        "--train.dataset",
+        dest="dataset",
+        type=str,
+        default="fashionmnist",
+        choices=["fashionmnist", "fashionmnist_contrast"],
+        help="fashionmnist: luminance jitter; fashionmnist_contrast: contrast jitter "
+        "(same --data.brightness_factor epsilon)",
+    )
     train.add_argument("--train.batch_size", dest="batch_size", type=int, default=32)
     train.add_argument("--train.test_batch_size", dest="test_batch_size", type=int, default=512)
     train.add_argument("--train.epochs", dest="epochs", type=int, default=50)
@@ -29,9 +37,10 @@ def build_parser(*, homeostasis_defaults: bool) -> argparse.ArgumentParser:
 
     data = p.add_argument_group("data")
     data.add_argument("--data.brightness_factor", dest="brightness_factor", type=float, default=0.75,
-                      help="epsilon of the luminance shift Delta ~ U(-eps, +eps)")
+                      help="epsilon of the train-time jitter: luminance Δ~U(-eps,+eps) for "
+                      "fashionmnist, or contrast scale c~U(1-eps,1+eps) for fashionmnist_contrast")
     data.add_argument("--data.brightness_factor_eval", dest="brightness_factor_eval", type=float, default=0.0,
-                      help="fixed test-time luminance shift; 0 means jitter the test set like training")
+                      help="fixed test-time jitter amount; 0 means jitter the test set like training")
     data.add_argument("--data.data_dir", dest="data_dir", type=str, default="./data")
 
     model = p.add_argument_group("model")
