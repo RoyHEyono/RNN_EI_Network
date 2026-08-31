@@ -40,31 +40,28 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
         help="Use ParametrizedLayerNorm instead of nn.LayerNorm inside --arch ei's SimpleEERNN core",
     )
     p.add_argument(
-        "--param-ln-pretrain-steps",
-        type=int,
-        default=500,
-        help="Steps calibrating ParametrizedLayerNorm on fresh dataset batches before joint training",
-    )
-    p.add_argument(
         "--lr-norm-mean",
+        "--lr_norm_mean",
         type=float,
-        default=0,
+        default=1e-2,
         metavar="LR",
         dest="lr_norm_mean",
         help="SGD lr for ParametrizedLayerNorm.mean_net (default: 1e-2)",
     )
     p.add_argument(
         "--lr-norm-var0",
+        "--lr_norm_var0",
         type=float,
-        default=0,
+        default=1e-2,
         metavar="LR",
         dest="lr_norm_var0",
         help="SGD lr for ParametrizedLayerNorm.var_net[0] Linear (default: 1e-2)",
     )
     p.add_argument(
         "--lr-norm-var2",
+        "--lr_norm_var2",
         type=float,
-        default=0,
+        default=1e-2,
         metavar="LR",
         dest="lr_norm_var2",
         help="SGD lr for ParametrizedLayerNorm.var_net[2] Linear (default: 1e-2)",
@@ -86,8 +83,8 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--device", type=str, default="", help="cuda | cpu (empty = auto)")
     p.add_argument("--optimizer", type=str, default="sgd", choices=("adam", "sgd"))
     p.add_argument("--lr", type=float, default=1e-2, help="Adam lr or SGD base lr for excitatory group")
-    p.add_argument("--lr-ie", type=float, default=None, dest="lr_ie", help="SGD lr for *_IE (default: --lr)")
-    p.add_argument("--lr-ei", type=float, default=None, dest="lr_ei", help="SGD lr for *_EI (default: --lr)")
+    p.add_argument("--lr-ie", "--lr_ie", type=float, default=None, dest="lr_ie", help="SGD lr for *_IE (default: --lr)")
+    p.add_argument("--lr-ei", "--lr_ei", type=float, default=None, dest="lr_ei", help="SGD lr for *_EI (default: --lr)")
     p.add_argument("--momentum", type=float, default=0.0, help="SGD momentum (default 0)")
     p.add_argument(
         "--wandb",
@@ -96,9 +93,11 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--wandb-project",
+        "--wandb_project",
         type=str,
         default="neurogym-ei-rnn",
         metavar="NAME",
+        dest="wandb_project",
         help="W&B project when --wandb is set (default: neurogym-ei-rnn)",
     )
     return p

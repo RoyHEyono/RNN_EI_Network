@@ -10,7 +10,6 @@ import wandb
 from experiments.neurogym.cli import build_train_arg_parser
 from experiments.neurogym.training import (
     configure_neurogym_warnings,
-    pretrain_parametrized_layer_norm,
     require_neurogym,
     train_supervised_steps,
 )
@@ -124,16 +123,6 @@ def main() -> None:
         wandb.watch(model, log="all", log_freq=max(args.log_interval, 50))
 
     try:
-        if optimizer_norm is not None and args.param_ln_pretrain_steps > 0:
-            pretrain_parametrized_layer_norm(
-                model,
-                dataset,
-                optimizer_norm,
-                args.param_ln_pretrain_steps,
-                device,
-                log_interval=args.log_interval,
-                use_wandb=args.wandb,
-            )
         train_supervised_steps(
             args,
             model,

@@ -1,0 +1,51 @@
+name: neurogym-ei-independent-learning-rates
+project: ng-perceptualdecisionmaking-v0
+program: experiments/neurogym/main.py
+method: bayes
+
+metric:
+  name: eval/trial_accuracy_auc
+  goal: maximize
+
+parameters:
+  # Names use underscores: W&B passes these as --lr_ie=..., --lr_norm_mean=..., etc.
+  # CLI accepts both hyphen and underscore forms (--lr-ie / --lr_ie).
+  lr:
+    distribution: log_uniform_values
+    min: 0.001   # eta_exc: 1e-3 .. 1e-1
+    max: 0.1
+  lr_ie:
+    distribution: log_uniform_values
+    min: 0.00001  # eta_wei: 1e-5 .. 1e-2
+    max: 0.01
+  lr_ei:
+    distribution: log_uniform_values
+    min: 0.01     # eta_wix: 1e-2 .. 1e0
+    max: 1.0
+  # ParametrizedLayerNorm (separate optimizer_norm)
+  lr_norm_mean:
+    distribution: log_uniform_values
+    min: 0.000001
+    max: 0.0001
+  lr_norm_var0:
+    distribution: log_uniform_values
+    min: 0.00000001
+    max: 0.0001
+  lr_norm_var2:
+    distribution: log_uniform_values
+    min: 0.00000001
+    max: 0.0001
+
+command:
+  - ${env}
+  - ${interpreter}
+  - -m
+  - experiments.neurogym.main
+  - --wandb
+  - --wandb-project=ng-perceptualdecisionmaking-v0
+  - --task=PerceptualDecisionMaking-v0
+  - --arch=ei
+  - --param-layer-norm
+  - --optimizer=sgd
+  - --momentum=0
+  - ${args}

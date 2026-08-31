@@ -95,15 +95,23 @@ class RNNNet(nn.Module):
     Internally reshapes to a sequence ``(B, 28, 28)`` (rows as timesteps).
     """
 
-    def __init__(self, hidden_size=128, nonlinearity="tanh", num_classes=10):
+    def __init__(
+        self,
+        hidden_size=128,
+        nonlinearity="tanh",
+        num_classes=10,
+        use_parametrized_layer_norm: bool = False,
+    ):
         super().__init__()
         self.rnn = SimpleEERNN(
             input_size=MNIST_SIDE,
             hidden_size=hidden_size,
             nonlinearity=nonlinearity,
             batch_first=True,
+            use_parametrized_layer_norm=use_parametrized_layer_norm,
         )
         self.head = EiDenseLayer(hidden_size, num_classes)
+        self.last_aux_loss: torch.Tensor | None = None
 
     def forward(self, x, return_layer_inputs=False):
         if x.dim() != 4:
@@ -114,7 +122,12 @@ class RNNNet(nn.Module):
             )
 
         seq = x.squeeze(1)  # (B, 28, 28)
-        rnn_out, h_n = self.rnn(seq)
+        if self.rnn.use_parametrized_layer_norm:
+            rnn_out, h_n, aux_losses = self.rnn(seq)
+            self.last_aux_loss = sum(aux_losses)
+        else:
+            rnn_out, h_n = self.rnn(seq)
+            self.last_aux_loss = None
         logits = self.head(h_n)
         if return_layer_inputs:
             return logits, (seq, rnn_out, h_n)
