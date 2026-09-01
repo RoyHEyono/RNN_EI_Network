@@ -22,16 +22,12 @@ parameters:
     max: 1.0
   lr_norm_mean:
     distribution: log_uniform_values
-    min: 0.000001
-    max: 0.0001
+    min: 0.0001
+    max: 0.1
   lr_norm_var0:
     distribution: log_uniform_values
-    min: 0.00000001
-    max: 0.0001
-  lr_norm_var2:
-    distribution: log_uniform_values
-    min: 0.00000001
-    max: 0.0001
+    min: 0.0001
+    max: 0.1
 
 command:
   - ${env}

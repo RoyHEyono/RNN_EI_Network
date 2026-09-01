@@ -61,7 +61,6 @@ def main() -> None:
                 model.rnn.layer_norm,
                 args.lr_norm_mean,
                 args.lr_norm_var0,
-                args.lr_norm_var2,
             ),
             momentum=args.momentum,
         )

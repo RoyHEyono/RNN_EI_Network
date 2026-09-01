@@ -30,15 +30,15 @@ def inorm_param_groups(model, lr_exc, lr_ie, lr_ei):
     ]
 
 
-def param_ln_param_groups(layer_norm, lr_mean, lr_var0, lr_var2):
+def param_ln_param_groups(layer_norm, lr_mean, lr_var0):
     """SGD groups for :class:`~inhibition.normalization.ParametrizedLayerNorm`.
 
-    One group for ``mean_net``, one for ``var_net[0]``, one for ``var_net[2]``.
+    One group for ``mean_net`` and one for ``var_net[0]``. The divisive readout
+    ``var_net[2]`` is frozen (``freeze_ei``), so it is not optimized.
     """
     return [
         {"params": list(layer_norm.mean_net.parameters()), "lr": lr_mean},
         {"params": list(layer_norm.var_net[0].parameters()), "lr": lr_var0},
-        {"params": list(layer_norm.var_net[2].parameters()), "lr": lr_var2},
     ]
 
 

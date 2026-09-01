@@ -129,9 +129,11 @@ class ParametrizedLayerNorm(nn.Module):
         hidden_size: int,
         eps: float = 1e-5,
         stats_hidden_size: int | None = None,
+        freeze_ei: bool = True,
     ):
         super().__init__()
         self.eps = eps
+        self.freeze_ei = freeze_ei
         feat_dim = input_size + hidden_size
         # Number of divisive units. Default n_h matches the notebook's recurrent
         # example; ``W_eff`` is rank <= n_h - 1 so the last singular value is ~0.
@@ -142,6 +144,16 @@ class ParametrizedLayerNorm(nn.Module):
             Square(),
             nn.Linear(stats_hidden_size, 1),
         )
+
+        # Mirror the dense INormLayer's ``freeze_ei``: the divisive readout
+        # (``var_net[2]`` <-> ``U_EI``) is a fixed, non-negative uniform average of
+        # the squared projections. Freezing it removes the runaway output-scale
+        # axis that lets ``pred_var`` blow up to infinity, so only the projection
+        # (``var_net[0]`` <-> ``U_IE``) is trained. ``init_from_rnn_weights`` sets
+        # this readout to the uniform average ``1/n_h``.
+        if freeze_ei:
+            for p in self.var_net[2].parameters():
+                p.requires_grad_(False)
 
     def init_from_rnn_weights(
         self,
@@ -182,21 +194,21 @@ class ParametrizedLayerNorm(nn.Module):
         pred_var: torch.Tensor,
         pre_act: torch.Tensor,
     ) -> torch.Tensor:
-        """Push predicted-normalized activations toward mean 0 and variance 1.
+        """Match the predicted-stats normalization directly to true LayerNorm.
 
-        Add this to your main loss at training time. At inference you use only
-        the predicted stats, so this is what makes the module *approximate*
-        LayerNorm rather than apply an arbitrary affine per step. ``pre_act``
-        is detached so the aux objective only trains the stats predictor;
-        ``x_t`` / ``h_prev`` are detached before ``_predict_stats`` for the
-        same reason.
+        MSE between ``(pre_act - pred_mean) / sqrt(pred_var)`` and
+        ``LayerNorm(pre_act)``. Exactly 0 at init (the predicted stats reproduce the
+        LayerNorm mean/variance) and well-posed on zero-variance (blank) rows, where
+        both the prediction and the target are 0.
+
+        Add this to your main loss at training time. ``pre_act`` is detached so the
+        aux objective only trains the stats predictor; ``x_t`` / ``h_prev`` are
+        detached before ``_predict_stats`` for the same reason.
         """
         x = pre_act.detach()
         pred_norm = (x - pred_mean) / torch.sqrt(pred_var)
-        # Encourage LayerNorm-like stats: feature-wise mean ~ 0, var ~ 1.
-        mean = pred_norm.mean(dim=-1)
-        var = pred_norm.var(dim=-1, unbiased=False)
-        return mean.pow(2).mean() + (var - 1).pow(2).mean()
+        target = F.layer_norm(x, x.shape[-1:], eps=self.eps)
+        return F.mse_loss(pred_norm, target)
 
     def measure_layer_norm_mse(
         self,

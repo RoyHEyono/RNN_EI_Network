@@ -41,8 +41,7 @@ python -m experiments.rnn_fmnist.main \
   --epsilon=0.75 \
   --lr=0.01 --lr-ie=0.001 --lr-ei=0.1 \
   --lr-norm-mean=0.00001 \
-  --lr-norm-var0=0.000001 \
-  --lr-norm-var2=0.000001
+  --lr-norm-var0=0.000001
 ```
 
 Add `--dry-run --no-accel` for a one-batch smoke test. By default, test images
@@ -60,7 +59,6 @@ The ranges are copied exactly from `experiments/neurogym/sweep.yaml`:
 - `lr_ei`: 0.01 to 1.0
 - ParamLN only, `lr_norm_mean`: 0.000001 to 0.0001
 - ParamLN only, `lr_norm_var0`: 0.00000001 to 0.0001
-- ParamLN only, `lr_norm_var2`: 0.00000001 to 0.0001
 
 Generate the 16 concrete YAML files:
 

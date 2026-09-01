@@ -20,8 +20,8 @@ class TestParametrizedLayerNorm(unittest.TestCase):
 
     def setUp(self):
         torch.manual_seed(0)
-        self.batch_size = 32
-        self.input_size = 8
+        self.batch_size = 128
+        self.input_size = 28
         self.hidden_size = 16
         self.eps = 1e-5
         # Build the module through a SimpleEERNN so its divisive stats predictors
@@ -29,6 +29,7 @@ class TestParametrizedLayerNorm(unittest.TestCase):
         self.rnn = SimpleEERNN(
             self.input_size,
             self.hidden_size,
+            nonlinearity='relu',
             batch_first=True,
             use_parametrized_layer_norm=True,
             layer_norm_eps=self.eps,
@@ -89,7 +90,7 @@ class TestParametrizedLayerNorm(unittest.TestCase):
             _, aux = self.module(self.pre_act, self.x_t, self.h_prev)
         max_abs = (predicted - target).abs().max().item()
         self.assertTrue(
-            torch.allclose(predicted, target, atol=1e-3, rtol=1e-3),
+            torch.allclose(predicted, target, atol=1e-6, rtol=1e-6),
             msg=f"predicted norm should match LayerNorm at init (max |diff|={max_abs:.2e})",
         )
         self.assertLess(
@@ -123,7 +124,12 @@ class TestParametrizedLayerNorm(unittest.TestCase):
         for p in self.module.mean_net.parameters():
             self.assertIsNotNone(p.grad)
             self.assertGreater(p.grad.abs().sum().item(), 0.0)
+        # var_net[2] is frozen by default (freeze_ei); only the trainable
+        # projection receives gradients.
         for p in self.module.var_net.parameters():
+            if not p.requires_grad:
+                self.assertIsNone(p.grad)
+                continue
             self.assertIsNotNone(p.grad)
             self.assertGreater(p.grad.abs().sum().item(), 0.0)
         self.assertIsNone(x_t.grad)

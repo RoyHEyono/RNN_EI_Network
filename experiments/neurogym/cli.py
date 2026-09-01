@@ -58,15 +58,6 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
         help="SGD lr for ParametrizedLayerNorm.var_net[0] Linear (default: 1e-2)",
     )
     p.add_argument(
-        "--lr-norm-var2",
-        "--lr_norm_var2",
-        type=float,
-        default=1e-2,
-        metavar="LR",
-        dest="lr_norm_var2",
-        help="SGD lr for ParametrizedLayerNorm.var_net[2] Linear (default: 1e-2)",
-    )
-    p.add_argument(
         "--aux-loss-weight",
         type=float,
         default=1.0,

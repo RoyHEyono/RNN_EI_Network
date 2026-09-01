@@ -66,7 +66,7 @@ ParametrizedLayerNorm on `DelayMatchSample-v0` and independently tunes:
 
 - `lr`, `lr_ie`, `lr_ei` — task network (excitatory RNN + EI readout), log-uniform:
   `lr` 0.001–0.1, `lr_ie` 1e-5–0.01, `lr_ei` 0.01–1.0
-- `lr_norm_mean`, `lr_norm_var0`, `lr_norm_var2` — ParametrizedLayerNorm, log-uniform
+- `lr_norm_mean`, `lr_norm_var0` — ParametrizedLayerNorm, log-uniform
   0.001–0.5 each
 
 The optimizer is fixed to SGD, momentum is fixed to zero, and Bayesian search maximizes

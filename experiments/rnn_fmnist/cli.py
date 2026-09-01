@@ -69,13 +69,6 @@ def build_train_arg_parser() -> argparse.ArgumentParser:
         default=1e-6,
         dest="lr_norm_var0",
     )
-    parser.add_argument(
-        "--lr-norm-var2",
-        "--lr_norm_var2",
-        type=float,
-        default=1e-6,
-        dest="lr_norm_var2",
-    )
     parser.add_argument("--aux-loss-weight", type=float, default=1.0)
 
     parser.add_argument("--wandb", action="store_true")

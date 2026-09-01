@@ -28,21 +28,35 @@ class TestRNNFashionMNISTModel(unittest.TestCase):
 
         (logits.square().mean() + model.last_aux_loss).backward()
         norm = model.rnn.layer_norm
+        # The divisive readout (var_net[2]) is frozen by default (freeze_ei), so
+        # only trainable params are expected to receive gradients.
         self.assertTrue(
-            all(parameter.grad is not None for parameter in norm.parameters())
+            all(
+                parameter.grad is not None
+                for parameter in norm.parameters()
+                if parameter.requires_grad
+            )
+        )
+        self.assertTrue(
+            all(not p.requires_grad for p in norm.var_net[2].parameters())
         )
 
     def test_main_and_norm_optimizer_groups_are_disjoint_and_complete(self):
         model = RNNNet(hidden_size=8, use_parametrized_layer_norm=True)
         main_groups = inorm_param_groups(model, 0.1, 0.2, 0.3)
-        norm_groups = param_ln_param_groups(model.rnn.layer_norm, 0.4, 0.5, 0.6)
+        norm_groups = param_ln_param_groups(model.rnn.layer_norm, 0.4, 0.5)
         main_ids = {id(p) for group in main_groups for p in group["params"]}
         norm_ids = {id(p) for group in norm_groups for p in group["params"]}
 
         self.assertFalse(main_ids & norm_ids)
-        self.assertEqual(
-            main_ids | norm_ids, {id(parameter) for parameter in model.parameters()}
-        )
+        # The frozen divisive readout (var_net[2]) is intentionally not optimized,
+        # so the optimizer groups must cover exactly the trainable parameters.
+        trainable_ids = {
+            id(parameter)
+            for parameter in model.parameters()
+            if parameter.requires_grad
+        }
+        self.assertEqual(main_ids | norm_ids, trainable_ids)
 
 
 class TestRNNFashionMNISTConfiguration(unittest.TestCase):
