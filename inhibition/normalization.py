@@ -205,10 +205,17 @@ class ParametrizedLayerNorm(nn.Module):
         aux objective only trains the stats predictor; ``x_t`` / ``h_prev`` are
         detached before ``_predict_stats`` for the same reason.
         """
+        # x = pre_act.detach()
+        # pred_norm = (x - pred_mean) / torch.sqrt(pred_var)
+        # target = F.layer_norm(x, x.shape[-1:], eps=self.eps)
+        # return F.mse_loss(pred_norm, target)
+
         x = pre_act.detach()
         pred_norm = (x - pred_mean) / torch.sqrt(pred_var)
-        target = F.layer_norm(x, x.shape[-1:], eps=self.eps)
-        return F.mse_loss(pred_norm, target)
+        # Encourage LayerNorm-like stats: feature-wise mean ~ 0, var ~ 1.
+        mean = pred_norm.mean(dim=-1)
+        var = pred_norm.var(dim=-1, unbiased=False)
+        return mean.pow(2).mean() + (var - 1).pow(2).mean()
 
     def measure_layer_norm_mse(
         self,

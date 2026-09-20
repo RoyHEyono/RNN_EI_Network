@@ -2,7 +2,8 @@
 
 Covers Figures 3-7. The condition is selected by three flags:
 
-* ``--model.shunting``       0 = subtractive-only I-Norm, 1 = subtractive + divisive
+* ``--model.shunting``       0 disables the divisive pathway
+* ``--model.subtractive``    0 disables the subtractive pathway
 * ``--model.normtype_detach`` 1 = plain I-Norm (Fig. 4), 0 = I-Norm + GradNorm (Fig. 5)
 * ``--model.ln_feedback``    which part of the LayerNorm Jacobian GradNorm imposes
   (``full``/``center``/``scale``/``decorrelate`` for Fig. 6, ``fa_center`` --
@@ -35,6 +36,7 @@ def build_model(args, *, wandb_log: bool):
         # i.e. it turns GradNorm off.
         gradient_norm=not bool(args.normtype_detach),
         shunting=bool(args.shunting),
+        subtractive=bool(args.subtractive),
         track_alignment=bool(args.track_alignment),
         freeze_ei=bool(args.freeze_ei),
         wandb_log=wandb_log,

@@ -31,6 +31,7 @@ uv run python -m experiments.dense_fmnist.train_inorm_network \
   --model.normtype=0 \
   --model.normtype_detach="$NORMTYPE_DETACH" \
   --model.shunting="$SHUNTING" \
+  --model.subtractive="${SUBTRACTIVE:-1}" \
   --model.ln_feedback="$LN_FEEDBACK" \
   --model.excitation_training=1 \
   --model.hidden_layer_width="$width" \

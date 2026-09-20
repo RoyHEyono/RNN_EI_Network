@@ -28,11 +28,12 @@ bf=${brightness_factors[${SLURM_ARRAY_TASK_ID}]}
 
 echo "grid=${SLURM_ARRAY_TASK_ID} brightness=$bf shunting=0"
 
-export DATASET="${DATASET:-fashionmnist}"
+export DATASET="${DATASET:-fashionmnist_contrast}"
 export BRIGHTNESS_FACTOR=$bf
 export NORMTYPE_DETACH=1
 export LN_FEEDBACK="full"
 export SHUNTING=0
+export SUBTRACTIVE=1
 export LAMBDA_HOMEOS=0.01
 
 submit_inner_array "$SCRIPT_DIR/run_inorm_network.sh"

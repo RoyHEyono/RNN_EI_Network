@@ -133,6 +133,25 @@ class TestDenseNets(unittest.TestCase):
         )
         self.assertTrue(torch.allclose(layer(h), expected, atol=1e-5))
 
+    def test_divisive_only_drops_the_subtractive_pathway(self):
+        net = INormDenseNet(hidden_size=64, subtractive=False)
+        layer = net.fc0
+        h = torch.flatten(self.x, 1)
+        e_drive = F.linear(h, layer.W_EE) + layer.bias
+        divisor = torch.sqrt(
+            F.linear(F.linear(h, layer.U_IE) ** 2, layer.U_EI) + layer.eps
+        )
+        self.assertTrue(torch.allclose(layer(h), e_drive / divisor, atol=1e-5))
+
+    def test_divisive_only_freezes_inactive_subtractive_parameters(self):
+        layer = INormDenseNet(
+            hidden_size=64, subtractive=False, freeze_ei=False
+        ).fc0
+        self.assertFalse(layer.W_IE.requires_grad)
+        self.assertFalse(layer.W_EI.requires_grad)
+        self.assertTrue(layer.U_IE.requires_grad)
+        self.assertTrue(layer.U_EI.requires_grad)
+
 
 class TestGradNormAndLateralInhibition(unittest.TestCase):
     def setUp(self):

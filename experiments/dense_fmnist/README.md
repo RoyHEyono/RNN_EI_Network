@@ -20,15 +20,18 @@ Networks have two hidden layers (`fc0`, `fc1`) plus an E/I readout, an inhibitor
 | E/I + LN⁻ (forward only) | `train_ei_network` | `... --model.normtype_detach=1` |
 | E-only + LN⁺ | `train_ei_network` | `--model.excitation_training=1 --model.layer_norm=1` |
 | I-Norm (subtractive only) | `train_inorm_network` | `--model.shunting=0 --model.normtype_detach=1` |
+| I-Norm (divisive only) | `train_inorm_network` | `--model.shunting=1 --model.subtractive=0 --model.normtype_detach=1` |
 | I-Norm | `train_inorm_network` | `--model.shunting=1 --model.normtype_detach=1` |
 | I-Norm + GradNorm | `train_inorm_network` | `--model.normtype_detach=0 --model.ln_feedback=full` |
 | GradNorm components | `train_inorm_network` | `--model.ln_feedback={scale,center,decorrelate}` |
 | Lateral inhibition | `train_inorm_network` | `--model.ln_feedback=fa_center` |
 
-Two flags carry most of the meaning:
+Three flags carry most of the meaning:
 
 * **`--model.normtype_detach`** routes the error signal *around* the normalization. It is what
   separates LN⁺ from LN⁻, and plain I-Norm (Fig. 4) from I-Norm + GradNorm (Fig. 5).
+* **`--model.shunting`** and **`--model.subtractive`** independently enable the divisive and
+  subtractive inhibitory pathways, respectively, allowing matched single-pathway controls.
 * **`--model.ln_feedback`** picks which term of the LayerNorm Jacobian GradNorm imposes
   (Fig. 6); `fa_center` replaces exact mean subtraction with pooling through fixed, random,
   positive synapses (Fig. 7).
@@ -61,6 +64,7 @@ export REPO_ROOT=$HOME/RNN_EI_Network WANDB_ENTITY=your_entity
 sbatch batch_ei_non_homeostasis_runs.sh   # Figure 2
 sbatch batch_inorm_runs.sh                # Figures 3-6
 sbatch batch_inorm_subtractive_runs.sh    # Figure 3b's I-Norm (sub)
+sbatch batch_inorm_divisive_runs.sh       # matched divisive-only control
 sbatch batch_inorm_fa_runs.sh             # Figure 7
 sbatch batch_inorm_lambda_runs.sh         # lambda sensitivity
 ```

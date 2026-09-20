@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --array=0-19     # 4 luminosities x 5 lambda values
+#SBATCH --array=0-3       # 4 luminosities
 #SBATCH --partition=long
 #SBATCH --exclude=cn-c008
 #SBATCH --gres=gpu:1
@@ -7,12 +7,13 @@
 #SBATCH --mem=16GB
 #SBATCH --time=00:30:00
 #SBATCH --cpus-per-gpu=4
-#SBATCH --output=sbatch_out/grid_lambda_%A_%a.out
-#SBATCH --error=sbatch_err/grid_lambda_%A_%a.err
-#SBATCH --job-name=grid_lambda
+#SBATCH --output=sbatch_out/grid_inorm_div_%A_%a.out
+#SBATCH --error=sbatch_err/grid_inorm_div_%A_%a.err
+#SBATCH --job-name=grid_inorm_div
 #
-# Sensitivity of I-Norm to the weight of the normalization loss (the default
-# used everywhere else is 0.01).
+# Divisive-only control matched to batch_inorm_subtractive_runs.sh: the same
+# local objective and sweep grid, but with the subtractive inhibitory pathway
+# removed and the divisive pathway enabled.
 set -euo pipefail
 
 # sbatch runs a spooled copy; fall back to the submit directory for siblings.
@@ -23,20 +24,16 @@ fi
 source "${_SCRIPT_DIR}/_common.sh"
 
 brightness_factors=(0 0.25 0.5 0.75)
-lambdas=(0.00001 0.0001 0.001 0.1 1)
+bf=${brightness_factors[${SLURM_ARRAY_TASK_ID}]}
 
-i=${SLURM_ARRAY_TASK_ID}
-bf=${brightness_factors[$(( i % 4 ))]}
-lam=${lambdas[$(( (i / 4) % 5 ))]}
+echo "grid=${SLURM_ARRAY_TASK_ID} brightness=$bf shunting=1 subtractive=0"
 
-echo "grid=$i brightness=$bf lambda=$lam"
-
-export DATASET="${DATASET:-fashionmnist}"
+export DATASET="${DATASET:-fashionmnist_contrast}"
 export BRIGHTNESS_FACTOR=$bf
 export NORMTYPE_DETACH=1
 export LN_FEEDBACK="full"
 export SHUNTING=1
-export SUBTRACTIVE=1
-export LAMBDA_HOMEOS=$lam
+export SUBTRACTIVE=0
+export LAMBDA_HOMEOS=0.01
 
 submit_inner_array "$SCRIPT_DIR/run_inorm_network.sh"

@@ -36,6 +36,7 @@ export BRIGHTNESS_FACTOR=$bf
 export NORMTYPE_DETACH=$detach
 export LN_FEEDBACK="fa_center"
 export SHUNTING=1
+export SUBTRACTIVE=1
 export LAMBDA_HOMEOS=0.01
 
 submit_inner_array "$SCRIPT_DIR/run_inorm_network.sh"

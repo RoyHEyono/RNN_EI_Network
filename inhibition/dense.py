@@ -22,8 +22,9 @@ class INormLayer(nn.Module):
     are trained by the task and the inhibitory weights only by
     :meth:`local_loss`. ``ln_feedback``/``gradient_norm`` select which part (if
     any) of the LayerNorm Jacobian is imposed on the back-propagated error
-    (the paper's GradNorm); ``shunting=False`` drops the divisive pathway,
-    giving the subtractive-only I-Norm condition.
+    (the paper's GradNorm). ``shunting=False`` drops the divisive pathway,
+    giving subtractive-only I-Norm; ``subtractive=False`` drops the subtractive
+    pathway, giving divisive-only I-Norm.
     """
 
     def __init__(
@@ -35,6 +36,7 @@ class INormLayer(nn.Module):
         ln_feedback="full",
         gradient_norm=True,
         shunting=True,
+        subtractive=True,
         track_alignment=False,
         freeze_ei=False,
     ):
@@ -42,6 +44,7 @@ class INormLayer(nn.Module):
         self.eps = eps
         self.ln_feedback = ln_feedback
         self.shunting = shunting
+        self.subtractive = subtractive
         self.track_alignment = track_alignment
         # The inhibitory population size is typically 10% of the excitatory size
         n_inh = int(out_features * inh_ratio)
@@ -90,6 +93,12 @@ class INormLayer(nn.Module):
             # keeps them frozen and trains only W_EE, W_IE and U_IE.
             self.W_EI.requires_grad_(False)
             self.U_EI.requires_grad_(False)
+        if not subtractive:
+            # Keep the initialized matrices available because U_IE's exact
+            # variance initialization uses them, but exclude the inactive path
+            # from optimization.
+            self.W_IE.requires_grad_(False)
+            self.W_EI.requires_grad_(False)
 
     def _clamp_weights(self):
         """Enforce Dale's principle (``U_IE`` is exempt: SVD init makes it signed)."""
@@ -106,6 +115,16 @@ class INormLayer(nn.Module):
         div_inh = F.linear(h_D, self.U_EI)
         z_d = torch.sqrt(div_inh + self.eps)
         return z_d.detach() if detach else z_d
+
+    def _subtractive_inhibition(self, h_prev):
+        if not self.subtractive:
+            return torch.zeros(
+                (*h_prev.shape[:-1], self.W_EE.shape[0]),
+                device=h_prev.device,
+                dtype=h_prev.dtype,
+            )
+        h_I = F.linear(h_prev, self.W_IE)
+        return F.linear(h_I, self.W_EI)
 
     def output_alignment(self, z):
         """Cosine similarity of this layer's output with true LayerNorm's."""
@@ -133,19 +152,16 @@ class INormLayer(nn.Module):
         # Enforce Dale's Principle: keep weights non-negative
         self._clamp_weights()
 
-        # 1. Calculate Inhibitory Activity (Feedforward)
-        h_I = F.linear(h_prev, self.W_IE) # Subtractive population
-
-        # 2. Direct Excitatory Drive
+        # 1. Direct Excitatory Drive
         e_drive = F.linear(h_prev, self.W_EE) + self.bias
 
-        # 3. Subtractive Inhibition
-        sub_inh = F.linear(h_I, self.W_EI)
+        # 2. Optional Subtractive Inhibition
+        sub_inh = self._subtractive_inhibition(h_prev)
 
-        # 4. Divisive Inhibition
+        # 3. Optional Divisive Inhibition
         z_d = self._divisor(h_prev, detach=True)
 
-        # 5. Combined Normalization (Equation 1 in paper)
+        # 4. Combined Normalization (Equation 1 in paper)
         z = (e_drive - sub_inh.detach()) / z_d
 
         if self.track_alignment and torch.is_grad_enabled():
@@ -165,9 +181,8 @@ class INormLayer(nn.Module):
         """
 
         h = h_prev.detach()
-        h_I = F.linear(h, self.W_IE)
         e_drive = F.linear(h, self.W_EE) + self.bias
-        sub_inh = F.linear(h_I, self.W_EI)
+        sub_inh = self._subtractive_inhibition(h)
         z_d = self._divisor(h, detach=False)
         z = (e_drive.detach() - sub_inh) / z_d
 

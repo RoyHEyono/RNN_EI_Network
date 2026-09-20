@@ -57,6 +57,8 @@ def build_parser(*, homeostasis_defaults: bool) -> argparse.ArgumentParser:
     model.add_argument("--model.shunting", dest="shunting", type=int,
                        default=1 if homeostasis_defaults else 0,
                        help="1 enables the divisive inhibitory pathway of the I-Norm layer")
+    model.add_argument("--model.subtractive", dest="subtractive", type=int, default=1,
+                       help="1 enables the subtractive inhibitory pathway of the I-Norm layer")
     model.add_argument("--model.ln_feedback", dest="ln_feedback", type=str, default="full",
                        choices=["full", "center", "scale", "decorrelate", "fa_center"])
     model.add_argument("--model.hidden_layer_width", dest="hidden_layer_width", type=int, default=234)
@@ -106,7 +108,7 @@ WANDB_CONFIG_KEYS = (
     "dataset", "batch_size", "test_batch_size", "epochs", "seed", "use_testset",
     "brightness_factor", "brightness_factor_eval",
     "normtype", "divisive_norm", "layer_norm", "normtype_detach",
-    "excitation_training", "shunting", "ln_feedback", "hidden_layer_width",
+    "excitation_training", "shunting", "subtractive", "ln_feedback", "hidden_layer_width",
     "num_layers", "freeze_ei", "track_alignment",
     "homeostasis", "feedback_alignment", "task_opt_inhib", "homeo_opt_exc",
     "is_dann", "n_outputs",
